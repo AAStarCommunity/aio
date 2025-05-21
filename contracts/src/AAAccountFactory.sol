@@ -11,7 +11,7 @@ import "./AAAccount.sol";
 contract AAAccountFactory {
     AAAccount public immutable accountImplementation;
     
-    event AccountCreated(address indexed account, address indexed owner, bytes32 indexed blsPublicKey);
+    event AccountCreated(address indexed account, address indexed owner, bytes blsPublicKey);
     
     constructor(IEntryPoint entryPoint) {
         accountImplementation = new AAAccount(entryPoint);
@@ -24,7 +24,7 @@ contract AAAccountFactory {
      * @param salt 用于确定性地址生成的盐值
      * @return proxy 新创建的账户地址
      */
-    function createAccount(address owner, bytes32 blsPublicKey, bytes32 salt) public returns (address proxy) {
+    function createAccount(address owner, bytes calldata blsPublicKey, bytes32 salt) public returns (address proxy) {
         bytes memory initializeData = abi.encodeWithSelector(
             AAAccount.initialize.selector,
             owner,
@@ -43,7 +43,7 @@ contract AAAccountFactory {
     /**
      * @dev 计算账户地址（在创建之前）
      */
-    function getAddress(address owner, bytes32 blsPublicKey, bytes32 salt) public view returns (address) {
+    function getAddress(address owner, bytes calldata blsPublicKey, bytes32 salt) public view returns (address) {
         bytes32 deploySalt = keccak256(abi.encodePacked(salt, owner, blsPublicKey));
         bytes memory initializeData = abi.encodeWithSelector(
             AAAccount.initialize.selector,
