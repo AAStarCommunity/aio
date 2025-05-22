@@ -9,7 +9,8 @@
     "build": "tsc",
     "test": "jest --config jest.config.js",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "generate-keys": "ts-node scripts/generateKeys.ts"
   },
   "keywords": [
     "ethereum",

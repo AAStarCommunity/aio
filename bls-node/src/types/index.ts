@@ -5,13 +5,17 @@ export interface NodeConfig {
   port: number;
   nodeEnv: string;
   nodeId: string;
-  masterNodeUrl: string;
-  isMasterNode: boolean;
-  blsPrivateKey: string;
-  rpId: string;
-  rpName: string;
-  origin: string;
   logLevel: string;
+  ethereum: {
+    rpcUrl: string;
+    chainId: number;
+    blsNodeRegistryAddress: string;
+    privateKey: string;
+  };
+  bls: {
+    privateKey: string;
+    publicKey: string;
+  };
 }
 
 /**

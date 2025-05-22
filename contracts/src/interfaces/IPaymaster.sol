@@ -8,28 +8,33 @@ import "./UserOperation.sol";
  * @dev Paymaster合约必须实现的接口
  */
 interface IPaymaster {
+    enum PostOpMode {
+        opSucceeded,
+        opReverted,
+        postOpReverted
+    }
+
     /**
-     * @dev 验证用户操作并决定是否支付gas费用
+     * @dev 验证用户操作并处理支付
      * @param userOp 用户操作
      * @param userOpHash 用户操作哈希
-     * @param requiredPreFund 预先需要的资金
-     * @return context 上下文数据，将传递给postOp
-     * @return validationData 验证结果数据
+     * @param maxCost 最大成本
+     * @return context 上下文数据，用于 postOp
      */
     function validatePaymasterUserOp(
         UserOperation calldata userOp,
         bytes32 userOpHash,
-        uint256 requiredPreFund
-    ) external returns (bytes memory context, uint256 validationData);
+        uint256 maxCost
+    ) external returns (bytes memory context);
 
     /**
-     * @dev 在用户操作执行后进行处理
-     * @param mode 处理模式 (0=成功, 1=还原)
-     * @param context validatePaymasterUserOp返回的上下文
-     * @param actualGasCost 实际gas成本
+     * @dev 操作后的处理
+     * @param mode 操作模式
+     * @param context validatePaymasterUserOp 返回的上下文
+     * @param actualGasCost 实际 gas 成本
      */
     function postOp(
-        uint8 mode,
+        PostOpMode mode,
         bytes calldata context,
         uint256 actualGasCost
     ) external;

@@ -1,241 +1,228 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "../interfaces/UserOperation.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
+import "../interfaces/IPaymaster.sol";
 import "../interfaces/IEntryPoint.sol";
 
 /**
  * @title AAPaymaster
- * @dev 为AA账户提供gas费用支付的Paymaster合约
+ * @dev 支付代理合约 - 为用户支付 gas 费用
  */
-contract AAPaymaster is Ownable {
+contract AAPaymaster is IPaymaster, Ownable, ReentrancyGuard, Pausable {
     IEntryPoint public immutable entryPoint;
     
-    // 支持的token列表及其兑换率
-    mapping(address => uint256) public tokenExchangeRate;
+    // 免费配额结构
+    struct FreeQuota {
+        uint256 amount;        // 剩余配额
+        uint256 resetTime;     // 重置时间
+        uint256 dailyLimit;    // 每日限额
+    }
     
-    // 记录用户的使用情况
-    mapping(address => uint256) public userQuota;
+    // ERC20 代币支付配置
+    struct TokenPaymentConfig {
+        bool enabled;          // 是否启用
+        uint256 rate;         // 兑换比率（1 token = rate wei）
+        uint256 minBalance;   // 最小余额要求
+    }
     
-    // 最大免费配额
-    uint256 public maxFreeQuota = 0.01 ether;
+    // 存储
+    mapping(address => FreeQuota) public freeQuotas;
+    mapping(address => TokenPaymentConfig) public tokenConfigs;
+    mapping(address => uint256) public tokenBalances;
     
-    event PaymasterFunded(address indexed funder, uint256 amount);
-    event UserOperationSponsored(address indexed user, uint256 actualGasCost);
-    event TokenSupported(address indexed token, uint256 exchangeRate);
-    event QuotaIncreased(address indexed user, uint256 amount);
+    // 常量
+    uint256 private constant QUOTA_PERIOD = 1 days;
+    uint256 private constant MIN_DEPOSIT = 0.01 ether;
     
-    error InsufficientEntryPointBalance();
-    error UnsupportedToken(address token);
-    error QuotaExceeded(address user);
-    error InvalidUserOp();
-    error InvalidSignature();
+    // 事件
+    event QuotaAdded(address indexed account, uint256 amount, uint256 dailyLimit);
+    event QuotaUsed(address indexed account, uint256 amount);
+    event TokenConfigUpdated(address indexed token, bool enabled, uint256 rate, uint256 minBalance);
+    event TokenPaymentProcessed(address indexed account, address indexed token, uint256 tokenAmount, uint256 ethAmount);
     
-    constructor(IEntryPoint _entryPoint) {
+    // 错误
+    error InsufficientQuota();
+    error InsufficientTokenBalance();
+    error TokenNotSupported();
+    error InvalidRate();
+    error QuotaStillValid();
+    error InsufficientDeposit();
+    
+    constructor(IEntryPoint _entryPoint) Ownable(msg.sender) {
         entryPoint = _entryPoint;
-        _transferOwnership(msg.sender);
     }
     
     /**
-     * @dev 接收ETH
-     */
-    receive() external payable {
-        deposit();
-    }
-    
-    /**
-     * @dev 向EntryPoint存入ETH
-     */
-    function deposit() public payable {
-        (bool success, ) = address(entryPoint).call{value: msg.value}("");
-        require(success, "Failed to deposit to EntryPoint");
-        emit PaymasterFunded(msg.sender, msg.value);
-    }
-    
-    /**
-     * @dev 从EntryPoint提取ETH
-     * @param amount 提取金额
-     */
-    function withdraw(uint256 amount) external onlyOwner {
-        (bool success, ) = address(entryPoint).call{gas: 100000}(
-            abi.encodeWithSignature("withdrawTo(address,uint256)", owner(), amount)
-        );
-        require(success, "Failed to withdraw from EntryPoint");
-    }
-    
-    /**
-     * @dev 添加支持的token及其兑换率
-     * @param token token地址
-     * @param rate 兑换率 (token单位/ETH)
-     */
-    function addSupportedToken(address token, uint256 rate) external onlyOwner {
-        tokenExchangeRate[token] = rate;
-        emit TokenSupported(token, rate);
-    }
-    
-    /**
-     * @dev 为用户增加免费配额
-     * @param user 用户地址
-     * @param amount 配额增加量
-     */
-    function increaseUserQuota(address user, uint256 amount) external onlyOwner {
-        userQuota[user] += amount;
-        emit QuotaIncreased(user, amount);
-    }
-    
-    /**
-     * @dev 设置最大免费配额
-     * @param newMaxQuota 新的最大配额
-     */
-    function setMaxFreeQuota(uint256 newMaxQuota) external onlyOwner {
-        maxFreeQuota = newMaxQuota;
-    }
-    
-    /**
-     * @dev 验证用户操作，决定是否支付gas费用
-     * @param userOp 用户操作
-     * @param userOpHash 用户操作哈希
-     * @param requiredPreFund 预先需要的资金
+     * @dev 验证用户操作并处理支付
      */
     function validatePaymasterUserOp(
         UserOperation calldata userOp,
         bytes32 userOpHash,
-        uint256 requiredPreFund
-    ) external returns (bytes memory context, uint256 validationData) {
-        // 确保调用者是EntryPoint
-        require(msg.sender == address(entryPoint), "Only EntryPoint can call");
+        uint256 maxCost
+    ) external whenNotPaused returns (bytes memory context) {
+        // 确保调用者是 EntryPoint
+        require(msg.sender == address(entryPoint), "Caller not EntryPoint");
         
-        // 检查EntryPoint余额是否足够
-        if (address(entryPoint).balance < requiredPreFund) {
-            revert InsufficientEntryPointBalance();
+        // 解析支付数据
+        (address token, PaymentType paymentType) = _parsePaymasterData(userOp.paymasterAndData);
+        
+        if (paymentType == PaymentType.FreeQuota) {
+            // 检查免费配额
+            _validateFreeQuota(userOp.sender, maxCost);
+            context = abi.encode(PaymentType.FreeQuota, userOp.sender, maxCost);
+        } else if (paymentType == PaymentType.Token) {
+            // 检查代币支付
+            require(token != address(0), "Invalid token");
+            uint256 tokenAmount = _calculateTokenAmount(token, maxCost);
+            _validateTokenPayment(userOp.sender, token, tokenAmount);
+            context = abi.encode(PaymentType.Token, userOp.sender, token, tokenAmount);
         }
-        
-        // 解析paymaster数据
-        (address token, uint256 maxCost, bytes memory signature) = parsePaymasterData(userOp.paymasterAndData);
-        
-        // 验证用户签名
-        validateUserSignature(userOp, userOpHash, signature);
-        
-        // 检查用户配额
-        address sender = userOp.sender;
-        if (userQuota[sender] >= requiredPreFund && userQuota[sender] <= maxFreeQuota) {
-            // 使用免费配额
-            userQuota[sender] -= requiredPreFund;
-            return (abi.encode(sender, address(0), 0), 0);
-        }
-        
-        // 如果提供了token地址，验证token支付
-        if (token != address(0)) {
-            // 检查token是否支持
-            uint256 exchangeRate = tokenExchangeRate[token];
-            if (exchangeRate == 0) {
-                revert UnsupportedToken(token);
-            }
-            
-            // 计算需要支付的token数量
-            uint256 tokenAmount = requiredPreFund * exchangeRate / 1 ether;
-            
-            // 确保用户已经授权Paymaster使用其token
-            IERC20 tokenContract = IERC20(token);
-            if (tokenContract.allowance(sender, address(this)) < tokenAmount) {
-                revert InvalidUserOp();
-            }
-            
-            // 转移token
-            bool success = tokenContract.transferFrom(sender, address(this), tokenAmount);
-            if (!success) {
-                revert InvalidUserOp();
-            }
-            
-            // 返回上下文数据，用于postOp处理
-            return (abi.encode(sender, token, tokenAmount), 0);
-        }
-        
-        // 如果不使用token，拒绝请求
-        revert QuotaExceeded(sender);
     }
     
     /**
-     * @dev 在用户操作执行后进行处理
-     * @param mode 处理模式
-     * @param context 上下文数据
-     * @param actualGasCost 实际gas成本
+     * @dev 操作后的处理
      */
     function postOp(
-        uint8 mode,
+        PostOpMode mode,
         bytes calldata context,
         uint256 actualGasCost
     ) external {
-        // 确保调用者是EntryPoint
-        require(msg.sender == address(entryPoint), "Only EntryPoint can call");
+        // 确保调用者是 EntryPoint
+        require(msg.sender == address(entryPoint), "Caller not EntryPoint");
         
-        // 解析上下文
-        (address user, address token, uint256 tokenAmount) = abi.decode(context, (address, address, uint256));
+        // 解析上下文数据
+        (PaymentType paymentType, address account) = abi.decode(context, (PaymentType, address));
         
-        // 如果是token支付，处理退款逻辑
-        if (token != address(0) && tokenAmount > 0) {
-            // 计算实际需要的token数量
-            uint256 exchangeRate = tokenExchangeRate[token];
-            uint256 actualTokenCost = actualGasCost * exchangeRate / 1 ether;
-            
-            // 如果预付的token多于实际消耗，退还差额
-            if (actualTokenCost < tokenAmount) {
-                uint256 refund = tokenAmount - actualTokenCost;
-                bool success = IERC20(token).transfer(user, refund);
-                require(success, "Token refund failed");
-            }
+        if (paymentType == PaymentType.FreeQuota) {
+            // 扣除免费配额
+            _deductFreeQuota(account, actualGasCost);
+        } else if (paymentType == PaymentType.Token) {
+            // 处理代币支付
+            (,, address token, uint256 tokenAmount) = abi.decode(context, (PaymentType, address, address, uint256));
+            _processTokenPayment(account, token, tokenAmount, actualGasCost);
         }
-        
-        emit UserOperationSponsored(user, actualGasCost);
     }
     
     /**
-     * @dev 解析Paymaster数据
-     * @param paymasterAndData Paymaster数据
-     * @return token token地址
-     * @return maxCost 最大成本
-     * @return signature 签名
+     * @dev 添加免费配额
      */
-    function parsePaymasterData(bytes calldata paymasterAndData) internal pure returns (
+    function addFreeQuota(address account, uint256 amount, uint256 dailyLimit) external onlyOwner {
+        FreeQuota storage quota = freeQuotas[account];
+        
+        // 如果配额未过期，则累加
+        if (quota.resetTime > block.timestamp) {
+            quota.amount += amount;
+        } else {
+            // 重置配额
+            quota.amount = amount;
+            quota.resetTime = block.timestamp + QUOTA_PERIOD;
+        }
+        
+        quota.dailyLimit = dailyLimit;
+        emit QuotaAdded(account, amount, dailyLimit);
+    }
+    
+    /**
+     * @dev 配置代币支付
+     */
+    function configureToken(
         address token,
-        uint256 maxCost,
-        bytes memory signature
-    ) {
-        // paymasterAndData的格式：
-        // abi.encodePacked(paymaster_address, token, maxCost, signature)
-        require(paymasterAndData.length >= 20 + 20 + 32 + 65, "Invalid paymasterAndData");
+        bool enabled,
+        uint256 rate,
+        uint256 minBalance
+    ) external onlyOwner {
+        if (rate == 0) revert InvalidRate();
         
-        uint256 offset = 20; // 跳过paymaster地址
-        token = address(bytes20(paymasterAndData[offset:offset + 20]));
-        offset += 20;
+        tokenConfigs[token] = TokenPaymentConfig({
+            enabled: enabled,
+            rate: rate,
+            minBalance: minBalance
+        });
         
-        maxCost = uint256(bytes32(paymasterAndData[offset:offset + 32]));
-        offset += 32;
-        
-        signature = paymasterAndData[offset:];
-        
-        return (token, maxCost, signature);
+        emit TokenConfigUpdated(token, enabled, rate, minBalance);
     }
     
     /**
-     * @dev 验证用户签名
-     * @param userOp 用户操作
-     * @param userOpHash 用户操作哈希
-     * @param signature 签名
+     * @dev 存入 ETH
      */
-    function validateUserSignature(
-        UserOperation calldata userOp,
-        bytes32 userOpHash,
-        bytes memory signature
-    ) internal view {
-        // 简单的签名验证示例，实际项目中应该调用AAAccount的验证逻辑
-        // 或者使用更安全的验证方式
+    function deposit() external payable {
+        if (msg.value < MIN_DEPOSIT) revert InsufficientDeposit();
         
-        // 这里仅作为示例，实际实现需要根据项目需求调整
-        if (signature.length < 65) {
-            revert InvalidSignature();
+        // 将存款转发给 EntryPoint
+        (bool success,) = address(entryPoint).call{value: msg.value}("");
+        require(success, "Deposit failed");
+    }
+    
+    /**
+     * @dev 存入代币
+     */
+    function depositToken(address token, uint256 amount) external nonReentrant {
+        TokenPaymentConfig memory config = tokenConfigs[token];
+        if (!config.enabled) revert TokenNotSupported();
+        
+        // 转入代币
+        IERC20(token).transferFrom(msg.sender, address(this), amount);
+        tokenBalances[token] += amount;
+    }
+    
+    // 内部函数
+    
+    function _validateFreeQuota(address account, uint256 cost) internal view {
+        FreeQuota storage quota = freeQuotas[account];
+        if (quota.amount < cost || block.timestamp > quota.resetTime) {
+            revert InsufficientQuota();
         }
     }
+    
+    function _validateTokenPayment(address account, address token, uint256 tokenAmount) internal view {
+        TokenPaymentConfig memory config = tokenConfigs[token];
+        if (!config.enabled) revert TokenNotSupported();
+        
+        uint256 balance = IERC20(token).balanceOf(account);
+        if (balance < tokenAmount) revert InsufficientTokenBalance();
+    }
+    
+    function _deductFreeQuota(address account, uint256 cost) internal {
+        FreeQuota storage quota = freeQuotas[account];
+        quota.amount -= cost;
+        emit QuotaUsed(account, cost);
+    }
+    
+    function _processTokenPayment(address account, address token, uint256 tokenAmount, uint256 ethAmount) internal {
+        // 转移代币
+        IERC20(token).transferFrom(account, address(this), tokenAmount);
+        tokenBalances[token] += tokenAmount;
+        
+        emit TokenPaymentProcessed(account, token, tokenAmount, ethAmount);
+    }
+    
+    function _calculateTokenAmount(address token, uint256 ethAmount) internal view returns (uint256) {
+        TokenPaymentConfig memory config = tokenConfigs[token];
+        return (ethAmount * 1e18) / config.rate;
+    }
+    
+    function _parsePaymasterData(bytes calldata paymasterAndData) internal pure returns (address token, PaymentType paymentType) {
+        // paymasterAndData 格式：
+        // paymaster (20 bytes) + type (1 byte) + token (20 bytes, optional)
+        require(paymasterAndData.length >= 21, "Invalid paymaster data");
+        
+        paymentType = PaymentType(uint8(paymasterAndData[20]));
+        if (paymentType == PaymentType.Token) {
+            require(paymasterAndData.length >= 41, "Invalid token data");
+            token = address(bytes20(paymasterAndData[21:41]));
+        }
+    }
+    
+    receive() external payable {
+        this.deposit();
+    }
+}
+
+enum PaymentType {
+    FreeQuota,
+    Token
 } 

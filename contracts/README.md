@@ -189,3 +189,143 @@ function setTestingMode(bool _isTesting) external onlyOwner {
 ## 许可证
 
 MIT
+
+# BLS 节点注册合约
+
+## 合约说明
+
+BLS 节点注册合约（`BLSNodeRegistry`）用于管理 BLS 节点的注册和状态。它提供以下功能：
+
+- 节点注册和注销
+- 节点状态管理（激活/停用）
+- 节点信息查询
+- 活跃节点列表获取
+
+## 开发环境
+
+- Solidity ^0.8.19
+- Foundry
+
+## 目录结构
+
+```
+contracts/
+├── src/
+│   ├── BLSNodeRegistry.sol        # 主合约
+│   └── interfaces/
+│       └── IBLSNodeRegistry.sol   # 合约接口
+├── script/
+│   └── DeployBLSNodeRegistry.s.sol # 部署脚本
+└── test/
+    └── BLSNodeRegistry.t.sol      # 测试用例
+```
+
+## 测试
+
+运行所有测试：
+
+```bash
+forge test
+```
+
+运行特定测试：
+
+```bash
+forge test --match-test testRegisterNode
+```
+
+查看测试覆盖率：
+
+```bash
+forge coverage
+```
+
+## 部署
+
+1. 设置环境变量：
+
+```bash
+# 创建 .env 文件
+cp .env.example .env
+
+# 编辑 .env 文件，设置以下变量：
+PRIVATE_KEY=your_private_key
+RPC_URL=your_rpc_url
+```
+
+2. 部署到测试网：
+
+```bash
+# Sepolia 测试网
+forge script script/DeployBLSNodeRegistry.s.sol --rpc-url $RPC_URL --broadcast --verify
+
+# 本地测试网
+forge script script/DeployBLSNodeRegistry.s.sol --rpc-url http://localhost:8545 --broadcast
+```
+
+## 合约地址
+
+- Sepolia: [待部署]
+- Mainnet: [待部署]
+
+## 合约接口
+
+### 注册节点
+```solidity
+function registerNode(
+    string calldata nodeId,
+    bytes calldata publicKey,
+    string calldata url
+) external;
+```
+
+### 停用节点
+```solidity
+function deactivateNode(string calldata nodeId) external;
+```
+
+### 激活节点
+```solidity
+function activateNode(string calldata nodeId) external;
+```
+
+### 更新节点URL
+```solidity
+function updateNodeUrl(
+    string calldata nodeId,
+    string calldata newUrl
+) external;
+```
+
+### 获取节点信息
+```solidity
+function getNode(string calldata nodeId) external view returns (
+    bytes memory publicKey,
+    string memory url,
+    bool isActive,
+    uint256 registeredAt
+);
+```
+
+### 获取活跃节点列表
+```solidity
+function getActiveNodes() external view returns (
+    string[] memory activeNodeIds,
+    bytes[] memory publicKeys,
+    string[] memory urls
+);
+```
+
+## 事件
+
+- `NodeRegistered(string indexed nodeId, bytes publicKey, string url)`
+- `NodeDeactivated(string indexed nodeId)`
+- `NodeActivated(string indexed nodeId)`
+- `NodeUpdated(string indexed nodeId, string url)`
+
+## 安全考虑
+
+1. 公钥长度验证：合约会验证 BLS 公钥长度必须为 48 字节
+2. 重复注册检查：同一个节点ID不能重复注册
+3. 空值检查：nodeId 和 url 不能为空
+4. 访问控制：合约继承自 OpenZeppelin 的 `Ownable`，关键操作需要所有者权限

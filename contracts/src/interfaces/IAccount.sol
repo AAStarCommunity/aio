@@ -20,4 +20,16 @@ interface IAccount {
         bytes32 userOpHash,
         uint256 missingAccountFunds
     ) external returns (uint256 validationData);
+
+    /**
+     * @dev 执行交易
+     * @param target 目标地址
+     * @param value 发送的 ETH 数量
+     * @param data 调用数据
+     */
+    function execute(
+        address target,
+        uint256 value,
+        bytes calldata data
+    ) external;
 } 

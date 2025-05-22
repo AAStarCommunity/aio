@@ -2,6 +2,8 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Script.sol";
+import "../src/interfaces/IEntryPoint.sol";
+import "../src/interfaces/IPaymaster.sol";
 import "../src/EntryPoint.sol";
 import "../src/AAAccount.sol";
 import "../src/AAAccountFactory.sol";
@@ -65,11 +67,15 @@ contract TestDeployment is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
         
-        // 实例化已部署的合约
-        EntryPoint entryPoint = EntryPoint(ENTRY_POINT_ADDRESS);
+        // 加载已部署的合约
+        address payable entryPointAddr = payable(ENTRY_POINT_ADDRESS);
+        address payable paymasterAddr = payable(PAYMASTER_ADDRESS);
+        address payable testAccountAddr = payable(TEST_ACCOUNT_ADDRESS);
+
+        EntryPoint entryPoint = EntryPoint(entryPointAddr);
         AAAccountFactory factory = AAAccountFactory(FACTORY_ADDRESS);
-        AAPaymaster paymaster = AAPaymaster(PAYMASTER_ADDRESS);
-        AAAccount testAccount = AAAccount(TEST_ACCOUNT_ADDRESS);
+        AAPaymaster paymaster = AAPaymaster(paymasterAddr);
+        AAAccount testAccount = AAAccount(testAccountAddr);
         
         // 测试账户的基本功能
         console.log("Test account owner: ", testAccount.owner());
