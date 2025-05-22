@@ -64,3 +64,128 @@ $ forge --help
 $ anvil --help
 $ cast --help
 ```
+
+# AAStar 智能合约模块
+
+AAStar 项目的智能合约模块，实现了基于账户抽象技术的以太坊交易功能。
+
+## 架构概述
+
+该模块包含以下核心组件：
+
+1. **AAAccount.sol**：实现账户抽象功能的智能合约，支持BLS签名验证。
+2. **AAAccountFactory.sol**：使用CREATE2部署AA账户合约，实现确定性地址生成。
+3. **EntryPoint.sol**：实现ERC-4337标准的EntryPoint合约，处理UserOperation。
+4. **AAPaymaster.sol**：为用户支付Gas费用的Paymaster合约。
+5. **BLSSignatureVerifier.sol**：实现链上BLS签名验证的库。
+
+## 主要功能
+
+- **邮箱+Passkey注册**：用户可以使用邮箱和Passkey创建AA账户。
+- **BLS签名验证**：支持BLS签名的验证，包括单个签名和聚合签名。
+- **Gas费用代付**：通过Paymaster实现免Gas交易体验。
+- **测试模式**：提供测试模式标志，方便开发和测试。
+
+## 安装与使用
+
+### 依赖项
+
+- Foundry (>= 0.8.0)
+- Solidity (^0.8.19)
+- OpenZeppelin Contracts
+
+### 安装
+
+```bash
+forge install
+```
+
+### 编译
+
+```bash
+forge build
+```
+
+### 测试
+
+```bash
+forge test
+```
+
+### 部署
+
+```bash
+# 设置环境变量
+export PRIVATE_KEY=your_private_key
+export RPC_URL=your_rpc_url
+
+# 部署到测试网
+forge script script/DeployAAContracts.s.sol:DeployAAContracts --rpc-url $RPC_URL --broadcast --verify
+```
+
+## 合约说明
+
+### AAAccount.sol
+
+账户抽象合约，实现了以下功能：
+
+- 初始化账户，设置所有者和BLS公钥
+- 验证UserOperation的BLS签名
+- 执行交易
+- 支持测试模式，方便开发
+
+### AAAccountFactory.sol
+
+账户工厂合约，负责创建新的AA账户：
+
+- 使用CREATE2确保地址确定性
+- 允许计算账户地址（在创建之前）
+
+### EntryPoint.sol
+
+ERC-4337 EntryPoint合约，处理用户操作：
+
+- 验证用户操作的签名
+- 执行用户请求的交易
+- 处理Gas费用支付
+
+### AAPaymaster.sol
+
+为用户支付Gas费用的Paymaster合约：
+
+- 支持免费配额机制
+- 支持使用ERC20代币支付Gas费用
+- 支持退款逻辑
+
+### BLSSignatureVerifier.sol
+
+BLS签名验证库：
+
+- 验证单个BLS签名
+- 验证聚合BLS签名
+- 支持哈希到曲线点的映射
+
+## 开发说明
+
+### 测试模式
+
+为了方便开发和测试，AAAccount合约提供了测试模式标志。在测试模式下，签名验证将被跳过，允许使用任意签名。
+
+```solidity
+// 设置测试模式
+function setTestingMode(bool _isTesting) external onlyOwner {
+    isTesting = _isTesting;
+}
+```
+
+### 扩展功能
+
+要添加新功能，可以扩展AAAccount合约或创建新的模块：
+
+1. **多签支持**：扩展验证逻辑，支持多重签名。
+2. **社交恢复**：添加社交恢复机制。
+3. **批量交易**：优化批量交易处理逻辑。
+
+## 许可证
+
+MIT
