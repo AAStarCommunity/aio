@@ -1,129 +1,106 @@
-import * as bls from '@noble/bls12-381';
-import { randomBytes } from 'crypto';
-import config from '../config';
+import { bls } from '@noble/bls12-381';
+import { ethers } from 'ethers';
+import config from '../config/config';
 import logger from '../utils/logger';
 
-class BLSService {
-  private blsPrivateKey: Uint8Array;
-  private blsPublicKey: Uint8Array;
+export class BLSService {
+  private readonly privateKey: Uint8Array;
+  private readonly publicKey: Uint8Array;
+  private readonly provider: ethers.JsonRpcProvider;
 
   constructor() {
-    try {
-      // 如果环境变量中已经有私钥，则使用它，否则生成新的
-      if (config.blsPrivateKey && config.blsPrivateKey !== 'your_bls_private_key_here') {
-        // 从十六进制字符串恢复私钥
-        this.blsPrivateKey = Buffer.from(config.blsPrivateKey, 'hex');
-      } else {
-        // 生成新的私钥 (32字节随机数)
-        this.blsPrivateKey = randomBytes(32);
-      }
-
-      // 从私钥生成公钥
-      this.blsPublicKey = bls.getPublicKey(this.blsPrivateKey);
-      
-      logger.info(`BLS服务初始化成功，公钥: ${Buffer.from(this.blsPublicKey).toString('hex')}`);
-    } catch (error) {
-      logger.error(`BLS服务初始化失败: ${error instanceof Error ? error.message : String(error)}`);
-      throw error;
-    }
+    // 初始化 BLS 密钥
+    this.privateKey = ethers.getBytes(config.bls.privateKey);
+    this.publicKey = ethers.getBytes(config.bls.publicKey);
+    this.provider = new ethers.JsonRpcProvider(config.ethereum.rpcUrl);
   }
 
   /**
-   * 获取节点的BLS公钥
-   */
-  getPublicKey(): string {
-    return Buffer.from(this.blsPublicKey).toString('hex');
-  }
-
-  /**
-   * 使用BLS私钥对消息进行签名
-   * @param message 需要签名的消息（十六进制字符串）
+   * 对消息进行 BLS 签名
+   * @param message 要签名的消息
+   * @returns BLS 签名
    */
   async sign(message: string): Promise<string> {
     try {
-      // 将十六进制消息转换为Uint8Array
-      const messageBytes = Buffer.from(message, 'hex');
+      logger.info(`Signing message: ${message}`);
       
-      // 使用BLS私钥对消息进行签名
-      const signature = await bls.sign(messageBytes, this.blsPrivateKey);
+      // 将消息转换为字节数组
+      const messageBytes = ethers.getBytes(ethers.hashMessage(message));
       
-      // 返回签名的十六进制字符串
-      return Buffer.from(signature).toString('hex');
+      // 使用 BLS 私钥签名
+      const signature = await bls.sign(messageBytes, this.privateKey);
+      
+      // 将签名转换为十六进制字符串
+      const signatureHex = ethers.hexlify(signature);
+      
+      logger.info(`Message signed successfully`);
+      return signatureHex;
     } catch (error) {
-      logger.error(`BLS签名失败: ${error instanceof Error ? error.message : String(error)}`);
-      throw new Error(`BLS签名失败: ${error instanceof Error ? error.message : String(error)}`);
+      logger.error(`Error signing message: ${error}`);
+      throw new Error(`Failed to sign message: ${error}`);
     }
   }
 
   /**
-   * 验证BLS签名
-   * @param message 原始消息（十六进制字符串）
-   * @param signature 签名（十六进制字符串）
-   * @param publicKey 公钥（十六进制字符串）
+   * 验证 BLS 签名
+   * @param message 原始消息
+   * @param signature BLS 签名
+   * @param publicKey 公钥
+   * @returns 签名是否有效
    */
   async verify(message: string, signature: string, publicKey: string): Promise<boolean> {
     try {
-      // 将所有参数转换为Uint8Array
-      const messageBytes = Buffer.from(message, 'hex');
-      const signatureBytes = Buffer.from(signature, 'hex');
-      const publicKeyBytes = Buffer.from(publicKey, 'hex');
-
+      logger.info(`Verifying signature for message: ${message}`);
+      
+      // 将消息转换为字节数组
+      const messageBytes = ethers.getBytes(ethers.hashMessage(message));
+      
+      // 将签名和公钥转换为字节数组
+      const signatureBytes = ethers.getBytes(signature);
+      const publicKeyBytes = ethers.getBytes(publicKey);
+      
       // 验证签名
-      return await bls.verify(signatureBytes, messageBytes, publicKeyBytes);
+      const isValid = await bls.verify(signatureBytes, messageBytes, publicKeyBytes);
+      
+      logger.info(`Signature verification result: ${isValid}`);
+      return isValid;
     } catch (error) {
-      logger.error(`BLS签名验证失败: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
+      logger.error(`Error verifying signature: ${error}`);
+      throw new Error(`Failed to verify signature: ${error}`);
     }
   }
 
   /**
-   * 聚合多个BLS签名
-   * @param signatures 签名数组（十六进制字符串数组）
+   * 聚合多个 BLS 签名
+   * @param signatures 要聚合的签名列表
+   * @returns 聚合后的签名
    */
   async aggregateSignatures(signatures: string[]): Promise<string> {
     try {
-      // 将所有签名转换为Uint8Array数组
-      const signatureBytes = signatures.map(sig => Buffer.from(sig, 'hex'));
+      logger.info(`Aggregating ${signatures.length} signatures`);
+      
+      // 将签名转换为字节数组
+      const signatureBytes = signatures.map(sig => ethers.getBytes(sig));
       
       // 聚合签名
-      const aggregatedSignature = bls.aggregateSignatures(signatureBytes);
+      const aggregatedSignature = await bls.aggregateSignatures(signatureBytes);
       
-      // 返回聚合签名的十六进制字符串
-      return Buffer.from(aggregatedSignature).toString('hex');
+      // 将聚合签名转换为十六进制字符串
+      const aggregatedSignatureHex = ethers.hexlify(aggregatedSignature);
+      
+      logger.info(`Signatures aggregated successfully`);
+      return aggregatedSignatureHex;
     } catch (error) {
-      logger.error(`BLS签名聚合失败: ${error instanceof Error ? error.message : String(error)}`);
-      throw new Error(`BLS签名聚合失败: ${error instanceof Error ? error.message : String(error)}`);
+      logger.error(`Error aggregating signatures: ${error}`);
+      throw new Error(`Failed to aggregate signatures: ${error}`);
     }
   }
 
   /**
-   * 验证聚合签名
-   * @param message 原始消息（十六进制字符串）
-   * @param aggregatedSignature 聚合签名（十六进制字符串）
-   * @param publicKeys 公钥数组（十六进制字符串数组）
+   * 获取 BLS 公钥
+   * @returns BLS 公钥
    */
-  async verifyAggregatedSignature(
-    message: string,
-    aggregatedSignature: string,
-    publicKeys: string[]
-  ): Promise<boolean> {
-    try {
-      // 将所有参数转换为正确的格式
-      const messageBytes = Buffer.from(message, 'hex');
-      const aggregatedSignatureBytes = Buffer.from(aggregatedSignature, 'hex');
-      const publicKeyBytes = publicKeys.map(pk => Buffer.from(pk, 'hex'));
-
-      // 创建相同消息的数组
-      const messages = Array(publicKeyBytes.length).fill(messageBytes);
-      
-      // 验证聚合签名
-      return await bls.verifyBatch(aggregatedSignatureBytes, messages, publicKeyBytes);
-    } catch (error) {
-      logger.error(`BLS聚合签名验证失败: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
+  getPublicKey(): string {
+    return ethers.hexlify(this.publicKey);
   }
-}
-
-// 创建单例
-export default new BLSService(); 
+} 

@@ -1,132 +1,165 @@
-# BLS节点服务
+# AAStar BLS 节点
 
-BLS节点是AAStar项目的重要组成部分，负责Passkey签名验证和BLS签名生成。通过BLS聚合签名技术，实现多方验证，提高系统安全性。
+AAStar 项目的 BLS 节点服务，负责 BLS 签名和验签功能。
 
 ## 功能特点
 
-- Passkey签名验证：验证用户提交的Passkey签名
-- BLS签名生成：使用BLS私钥对用户操作进行签名
-- 多节点协作：支持多个BLS节点协作，实现签名聚合
-- 主从架构：支持主节点和从节点模式
+- 无权限（Permissionless）设计：任何服务都可以调用 BLS 节点进行签名和验签
+- BLS 签名：支持对消息进行 BLS 签名
+- 签名验证：支持验证 BLS 签名的有效性
+- 签名聚合：支持聚合多个 BLS 签名
+- 节点注册：通过智能合约注册 BLS 节点
 
-## 技术栈
+## API 接口
 
-- Node.js & TypeScript
-- Express.js
-- @noble/bls12-381：BLS签名算法库
-- @simplewebauthn：Passkey (WebAuthn) 验证库
-- Winston：日志记录
+### 1. 签名接口
 
-## 快速开始
+```http
+POST /api/bls/sign
+Content-Type: application/json
+
+{
+  "message": "要签名的消息"
+}
+```
+
+响应：
+```json
+{
+  "signature": "BLS签名"
+}
+```
+
+### 2. 验签接口
+
+```http
+POST /api/bls/verify
+Content-Type: application/json
+
+{
+  "message": "原始消息",
+  "signature": "BLS签名",
+  "publicKey": "公钥"
+}
+```
+
+响应：
+```json
+{
+  "isValid": true/false
+}
+```
+
+### 3. 签名聚合接口
+
+```http
+POST /api/bls/aggregate
+Content-Type: application/json
+
+{
+  "signatures": ["签名1", "签名2", ...]
+}
+```
+
+响应：
+```json
+{
+  "aggregatedSignature": "聚合后的签名"
+}
+```
+
+### 4. 获取公钥接口
+
+```http
+GET /api/bls/public-key
+```
+
+响应：
+```json
+{
+  "publicKey": "BLS公钥"
+}
+```
+
+## 安装与运行
 
 ### 前置条件
 
-- Node.js 16+ 
-- npm 8+
+- Node.js (v16+)
+- npm 或 yarn
 
-### 安装依赖
+### 安装
 
 ```bash
+# 安装依赖
 npm install
+
+# 创建.env文件
+cp .env.example .env
+# 编辑.env文件，填入必要的配置参数
 ```
 
-### 配置环境变量
-
-复制环境变量模板文件并进行配置：
+### 运行
 
 ```bash
-cp example.env .env
+# 开发模式
+npm run dev
+
+# 生产模式
+npm run build
+npm start
 ```
 
-配置项说明：
+## 配置说明
 
-- `PORT`：服务监听端口
-- `NODE_ENV`：运行环境
-- `NODE_ID`：节点唯一标识
-- `MASTER_NODE_URL`：主节点URL
-- `IS_MASTER_NODE`：是否为主节点
-- `BLS_PRIVATE_KEY`：BLS私钥
-- `RP_ID`：Passkey Relying Party ID
-- `RP_NAME`：Passkey Relying Party 名称
-- `ORIGIN`：允许的源站
-- `LOG_LEVEL`：日志级别
+在 `.env` 文件中配置以下参数：
 
-### 构建与运行
+- `PORT`: 服务器端口号
+- `NODE_ENV`: 运行环境（development/production）
+- `LOG_LEVEL`: 日志级别
+- `ETH_RPC_URL`: 以太坊 RPC 节点地址
+- `CHAIN_ID`: 以太坊链 ID
+- `BLS_NODE_REGISTRY_ADDRESS`: BLS 节点注册合约地址
+- `BLS_PRIVATE_KEY`: BLS 私钥
+- `BLS_PUBLIC_KEY`: BLS 公钥
 
-构建项目：
+## 开发指南
 
+### 添加新的 BLS 功能
+
+1. 在 `src/services/BLSService.ts` 中添加新的方法
+2. 在 `src/controllers/BLSController.ts` 中添加对应的控制器方法
+3. 在 `src/routes/blsRoutes.ts` 中添加新的路由
+
+### 测试
+
+```bash
+# 运行测试
+npm test
+```
+
+## 部署
+
+### Docker 部署
+
+1. 构建 Docker 镜像:
+```bash
+docker build -t aastar-bls-node .
+```
+
+2. 运行 Docker 容器:
+```bash
+docker run -p 3001:3001 --env-file .env aastar-bls-node
+```
+
+### 传统部署
+
+1. 构建项目:
 ```bash
 npm run build
 ```
 
-启动服务：
-
+2. 使用 PM2 运行:
 ```bash
-npm start
-```
-
-开发模式启动（支持热重载）：
-
-```bash
-npm run dev
-```
-
-### 运行测试
-
-```bash
-npm test
-```
-
-## API接口
-
-### Passkey相关
-
-- `POST /api/passkey/generate-registration-options`: 生成Passkey注册选项
-- `POST /api/passkey/verify-registration`: 验证Passkey注册
-- `POST /api/passkey/generate-authentication-options`: 生成Passkey认证选项
-- `POST /api/passkey/verify-authentication`: 验证Passkey认证
-- `POST /api/passkey/verify-userop`: 验证UserOperation签名
-
-### 签名相关
-
-- `POST /api/sign`: 使用BLS私钥对消息进行签名
-- `POST /api/sign/aggregate`: 聚合来自多个节点的签名
-- `POST /api/sign/verify`: 验证BLS聚合签名
-
-### 节点管理
-
-- `GET /api/nodes`: 获取所有节点列表
-- `POST /api/nodes/register`: 注册新节点
-- `DELETE /api/nodes/:nodeId`: 移除节点
-
-## 部署
-
-### Docker部署
-
-构建Docker镜像：
-
-```bash
-docker build -t bls-node .
-```
-
-运行Docker容器：
-
-```bash
-docker run -p 3001:3001 --env-file .env bls-node
-```
-
-### 多节点部署
-
-部署多个BLS节点时，需要：
-
-1. 为每个节点指定唯一的`NODE_ID`
-2. 设置一个节点为主节点(`IS_MASTER_NODE=true`)
-3. 其他节点配置指向主节点的URL (`MASTER_NODE_URL`)
-
-## 贡献指南
-
-欢迎提交问题或Pull Request！
-
-## 许可证
-
-ISC 
+pm2 start dist/index.js --name aastar-bls-node
+``` 
