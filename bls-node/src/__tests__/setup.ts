@@ -1,3 +1,4 @@
+import '@testing-library/jest-dom';
 import dotenv from 'dotenv';
 import path from 'path';
 
@@ -13,6 +14,9 @@ beforeAll(() => {
   process.env.NODE_ENV = 'test';
   process.env.PORT = '3001';
   process.env.LOG_LEVEL = 'error';
+  process.env.BLS_PRIVATE_KEY = 'mock-private-key';
+  process.env.REGISTRY_CONTRACT_ADDRESS = 'mock-contract-address';
+  process.env.RPC_URL = 'mock-rpc-url';
 });
 
 // 清理测试环境
@@ -21,4 +25,7 @@ afterAll(() => {
   process.env.NODE_ENV = '';
   process.env.PORT = '';
   process.env.LOG_LEVEL = '';
+  process.env.BLS_PRIVATE_KEY = '';
+  process.env.REGISTRY_CONTRACT_ADDRESS = '';
+  process.env.RPC_URL = '';
 }); 

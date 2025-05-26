@@ -10,7 +10,7 @@ const logFormat = winston.format.combine(
 );
 
 // 根据环境设置日志级别
-const logLevel = config.logLevel;
+const logLevel = process.env.NODE_ENV === 'test' ? 'none' : config.logLevel;
 
 // 创建Winston日志记录器
 const logger = winston.createLogger({
@@ -34,7 +34,7 @@ const logger = winston.createLogger({
 });
 
 // 如果是非生产环境，还添加控制台输出
-if (config.nodeEnv !== 'production') {
+if (config.nodeEnv !== 'production' && process.env.NODE_ENV !== 'test') {
   logger.add(new winston.transports.Console({
     format: winston.format.simple(),
   }));

@@ -49,3 +49,5 @@ pids
 *.pid
 *.seed
 *.pid.lock 
+
+bls-node/coverage/

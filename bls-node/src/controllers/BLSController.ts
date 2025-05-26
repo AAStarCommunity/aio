@@ -1,12 +1,12 @@
-import { Request, Response } from 'express';
-import { BLSService } from '../services/BLSService';
+import { Request, Response, NextFunction } from 'express';
+import { BLSService } from '../services/blsService';
 import logger from '../utils/logger';
 
 export class BLSController {
-  private readonly blsService: BLSService;
+  private blsService: BLSService;
 
   constructor() {
-    this.blsService = new BLSService();
+    this.blsService = new BLSService(Buffer.from(process.env.BLS_PRIVATE_KEY || '', 'hex'));
   }
 
   /**
@@ -19,7 +19,7 @@ export class BLSController {
       const { message } = req.body;
       
       if (!message) {
-        res.status(400).json({ error: 'Missing message parameter' });
+        res.status(400).json({ error: 'Message is required' });
         return;
       }
       
@@ -28,7 +28,7 @@ export class BLSController {
       res.status(200).json({ signature });
     } catch (error) {
       logger.error(`Error in sign: ${error}`);
-      res.status(500).json({ error: `Failed to sign message: ${error}` });
+      res.status(500).json({ error: 'Failed to sign message' });
     }
   }
 
@@ -42,16 +42,16 @@ export class BLSController {
       const { message, signature, publicKey } = req.body;
       
       if (!message || !signature || !publicKey) {
-        res.status(400).json({ error: 'Missing required parameters' });
+        res.status(400).json({ error: 'Message, signature and publicKey are required' });
         return;
       }
       
       const isValid = await this.blsService.verify(message, signature, publicKey);
       
-      res.status(200).json({ isValid });
+      res.status(200).json({ valid: isValid });
     } catch (error) {
       logger.error(`Error in verify: ${error}`);
-      res.status(500).json({ error: `Failed to verify signature: ${error}` });
+      res.status(500).json({ error: 'Failed to verify signature' });
     }
   }
 
@@ -65,7 +65,7 @@ export class BLSController {
       const { signatures } = req.body;
       
       if (!signatures || !Array.isArray(signatures) || signatures.length === 0) {
-        res.status(400).json({ error: 'Invalid signatures parameter' });
+        res.status(400).json({ error: 'Signatures array is required' });
         return;
       }
       
@@ -74,7 +74,7 @@ export class BLSController {
       res.status(200).json({ aggregatedSignature });
     } catch (error) {
       logger.error(`Error in aggregateSignatures: ${error}`);
-      res.status(500).json({ error: `Failed to aggregate signatures: ${error}` });
+      res.status(500).json({ error: 'Failed to aggregate signatures' });
     }
   }
 
@@ -90,7 +90,7 @@ export class BLSController {
       res.status(200).json({ publicKey });
     } catch (error) {
       logger.error(`Error in getPublicKey: ${error}`);
-      res.status(500).json({ error: `Failed to get public key: ${error}` });
+      res.status(500).json({ error: 'Failed to get public key' });
     }
   }
 } 

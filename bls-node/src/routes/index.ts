@@ -1,17 +1,13 @@
 import { Router } from 'express';
-import signRoutes from './signRoutes';
+import blsRoutes from './blsRoutes';
 import nodeRoutes from './nodeRoutes';
-import passkeyRoutes from './passkeyRoutes';
 
 const router = Router();
 
 // 节点管理路由
-router.use('/nodes', nodeRoutes);
+router.use('/node', nodeRoutes);
 
-// 签名路由
-router.use('/sign', signRoutes);
-
-// Passkey路由
-router.use('/passkey', passkeyRoutes);
+// BLS路由
+router.use('/bls', blsRoutes);
 
 export default router; 
