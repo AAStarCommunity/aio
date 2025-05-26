@@ -32,7 +32,6 @@ export interface NodeInfo {
  */
 export interface SignatureRequest {
   messageHash: string;
-  userId: string;
 }
 
 /**
@@ -42,34 +41,6 @@ export interface SignatureResponse {
   nodeId: string;
   signature: string;
   publicKey: string;
-}
-
-/**
- * 用户验证器接口
- */
-export interface UserVerifier {
-  userId: string;
-  email: string;
-  credentialID: string;
-  credentialPublicKey: string;
-  counter: number;
-}
-
-/**
- * 注册验证结果接口
- */
-export interface RegistrationVerificationResult {
-  verified: boolean;
-  credentialID?: string;
-  error?: string;
-}
-
-/**
- * 认证验证结果接口
- */
-export interface AuthenticationVerificationResult {
-  verified: boolean;
-  error?: string;
 }
 
 /**
