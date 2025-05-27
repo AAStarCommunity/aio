@@ -57,6 +57,7 @@
     "esbuild": "^0.25.4",
     "esbuild-jest": "^0.5.0",
     "jest": "^29.7.0",
+    "mongodb-memory-server": "^10.1.4",
     "ts-jest": "^29.3.4",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.8.3"
