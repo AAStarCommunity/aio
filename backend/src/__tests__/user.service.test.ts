@@ -1,3 +1,5 @@
+/// <reference types="jest" />
+
 import { UserService } from '../services/user.service';
 import { User } from '../models/user.model';
 import { MongoMemoryServer } from 'mongodb-memory-server';
@@ -6,6 +8,14 @@ import type {
   RegistrationResponseJSON,
   AuthenticationResponseJSON
 } from '@simplewebauthn/types';
+
+// Mock logger
+jest.mock('../utils/logger', () => ({
+  info: jest.fn(),
+  error: jest.fn(),
+  warn: jest.fn(),
+  debug: jest.fn()
+}));
 
 jest.mock('../services/passkey.service', () => {
   return {
@@ -54,6 +64,7 @@ describe('UserService', () => {
 
   beforeEach(() => {
     userService = new UserService();
+    jest.clearAllMocks();
   });
 
   afterEach(async () => {
