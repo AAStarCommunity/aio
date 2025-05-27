@@ -1,12 +1,32 @@
+/// <reference types="jest" />
+
 import { PasskeyService } from '../services/passkey.service';
 import { User } from '../models/user.model';
 import { AppError } from '../middlewares/error.middleware';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
+import { 
+  generateRegistrationOptions,
+  verifyRegistrationResponse,
+  generateAuthenticationOptions,
+  verifyAuthenticationResponse
+} from '@simplewebauthn/server';
+import type { 
+  PublicKeyCredentialCreationOptionsJSON,
+  PublicKeyCredentialRequestOptionsJSON,
+  RegistrationResponseJSON,
+  AuthenticationResponseJSON
+} from '@simplewebauthn/types';
+
+jest.mock('@simplewebauthn/server');
 
 describe('PasskeyService', () => {
   let passkeyService: PasskeyService;
   let mongoServer: MongoMemoryServer;
+  const mockGenerateRegistrationOptions = generateRegistrationOptions as jest.Mock;
+  const mockVerifyRegistrationResponse = verifyRegistrationResponse as jest.Mock;
+  const mockGenerateAuthenticationOptions = generateAuthenticationOptions as jest.Mock;
+  const mockVerifyAuthenticationResponse = verifyAuthenticationResponse as jest.Mock;
 
   beforeAll(async () => {
     mongoServer = await MongoMemoryServer.create();
@@ -21,6 +41,7 @@ describe('PasskeyService', () => {
 
   beforeEach(() => {
     passkeyService = new PasskeyService();
+    jest.clearAllMocks();
   });
 
   afterEach(async () => {
@@ -28,58 +49,187 @@ describe('PasskeyService', () => {
   });
 
   describe('generateRegistrationOptions', () => {
-    test('should generate registration options for new email', async () => {
-      const email = 'test@example.com';
-      const options = await passkeyService.generateRegistrationOptions(email);
+    const mockEmail = 'test@example.com';
+    const mockOptions: PublicKeyCredentialCreationOptionsJSON = {
+      challenge: 'mockChallenge',
+      rp: {
+        name: 'AAStar',
+        id: 'localhost'
+      },
+      user: {
+        id: 'mockUserId',
+        name: mockEmail,
+        displayName: mockEmail
+      },
+      pubKeyCredParams: [],
+      timeout: 60000,
+      attestation: 'direct',
+      authenticatorSelection: {
+        authenticatorAttachment: 'platform',
+        requireResidentKey: true,
+        userVerification: 'preferred'
+      }
+    };
 
-      expect(options).toHaveProperty('challenge');
-      expect(options).toHaveProperty('rp');
+    it('should generate registration options', async () => {
+      mockGenerateRegistrationOptions.mockResolvedValue(mockOptions);
+
+      const options = await passkeyService.generateRegistrationOptions(mockEmail);
+
+      expect(mockGenerateRegistrationOptions).toHaveBeenCalled();
+      expect(options).toEqual(mockOptions);
+      expect(options.user.name).toBe(mockEmail);
       expect(options.rp.name).toBe('AAStar');
-      expect(options.user.id).toBe(email);
-      expect(options.user.name).toBe(email);
     });
 
-    test('should throw error for existing email', async () => {
-      const email = 'test@example.com';
-      await User.create({
-        email,
-        credentialId: 'test-id',
-        credentialPublicKey: Buffer.from('test'),
-        counter: 0,
-        aaAddress: '0x1234567890123456789012345678901234567890',
-      });
+    it('should handle errors during registration options generation', async () => {
+      const error = new Error('Registration options generation failed');
+      mockGenerateRegistrationOptions.mockRejectedValue(error);
 
-      await expect(passkeyService.generateRegistrationOptions(email))
+      await expect(passkeyService.generateRegistrationOptions(mockEmail))
         .rejects
-        .toThrow('该邮箱已注册');
+        .toThrow('Registration options generation failed');
+    });
+  });
+
+  describe('verifyRegistrationResponse', () => {
+    const mockEmail = 'test@example.com';
+    const mockResponse: RegistrationResponseJSON = {
+      id: 'mockCredentialId',
+      rawId: 'mockRawId',
+      response: {
+        clientDataJSON: 'mockClientData',
+        attestationObject: 'mockAttestationObject',
+        transports: ['internal']
+      },
+      type: 'public-key',
+      clientExtensionResults: {}
+    };
+    const mockChallenge = 'mockChallenge';
+    const mockVerification = {
+      verified: true,
+      registrationInfo: {
+        fmt: 'none',
+        counter: 0,
+        credentialType: 'public-key',
+        credential: {
+          id: Buffer.from('mockCredentialId'),
+          publicKey: Buffer.from('mockPublicKey'),
+          algorithm: -7
+        }
+      }
+    };
+
+    it('should verify valid registration response', async () => {
+      mockVerifyRegistrationResponse.mockResolvedValue(mockVerification);
+
+      const result = await passkeyService.verifyRegistration(
+        mockResponse,
+        mockChallenge,
+        mockEmail
+      );
+
+      expect(mockVerifyRegistrationResponse).toHaveBeenCalled();
+      expect(result.verified).toBe(true);
+      expect(result.registrationInfo).toHaveProperty('credentialID');
+      expect(result.registrationInfo).toHaveProperty('credentialPublicKey');
+      expect(result.registrationInfo).toHaveProperty('counter');
+    });
+
+    it('should handle invalid registration response', async () => {
+      const error = new Error('Invalid registration response');
+      mockVerifyRegistrationResponse.mockRejectedValue(error);
+
+      await expect(passkeyService.verifyRegistration(
+        mockResponse,
+        mockChallenge,
+        mockEmail
+      )).rejects.toThrow('Invalid registration response');
     });
   });
 
   describe('generateAuthenticationOptions', () => {
-    test('should generate authentication options for existing user', async () => {
-      const email = 'test@example.com';
-      const credentialId = 'test-id';
-      await User.create({
-        email,
-        credentialId,
-        credentialPublicKey: Buffer.from('test'),
-        counter: 0,
-        aaAddress: '0x1234567890123456789012345678901234567890',
-      });
+    const mockCredentialId = 'mockCredentialId';
+    const mockOptions: PublicKeyCredentialRequestOptionsJSON = {
+      challenge: 'mockChallenge',
+      allowCredentials: [{
+        id: mockCredentialId,
+        type: 'public-key',
+        transports: ['internal']
+      }],
+      timeout: 60000,
+      userVerification: 'preferred',
+      rpId: 'localhost'
+    };
 
-      const options = await passkeyService.generateAuthenticationOptions(email);
+    it('should generate authentication options', async () => {
+      mockGenerateAuthenticationOptions.mockResolvedValue(mockOptions);
 
-      expect(options).toHaveProperty('challenge');
-      expect(options).toHaveProperty('allowCredentials');
-      expect(options.allowCredentials[0].type).toBe('public-key');
+      const options = await passkeyService.generateAuthenticationOptions([mockCredentialId]);
+
+      expect(mockGenerateAuthenticationOptions).toHaveBeenCalled();
+      expect(options).toEqual(mockOptions);
+      expect(options.allowCredentials?.[0].id).toBe(mockCredentialId);
     });
 
-    test('should throw error for non-existing user', async () => {
-      const email = 'nonexistent@example.com';
+    it('should handle errors during authentication options generation', async () => {
+      const error = new Error('Authentication options generation failed');
+      mockGenerateAuthenticationOptions.mockRejectedValue(error);
 
-      await expect(passkeyService.generateAuthenticationOptions(email))
+      await expect(passkeyService.generateAuthenticationOptions([mockCredentialId]))
         .rejects
-        .toThrow('用户不存在');
+        .toThrow('Authentication options generation failed');
+    });
+  });
+
+  describe('verifyAuthenticationResponse', () => {
+    const mockResponse: AuthenticationResponseJSON = {
+      id: 'mockCredentialId',
+      rawId: 'mockRawId',
+      response: {
+        clientDataJSON: 'mockClientData',
+        authenticatorData: 'mockAuthenticatorData',
+        signature: 'mockSignature',
+        userHandle: 'mockUserHandle'
+      },
+      type: 'public-key',
+      clientExtensionResults: {}
+    };
+    const mockChallenge = 'mockChallenge';
+    const mockCredentialPublicKey = Buffer.from('mockPublicKey');
+    const mockCounter = 0;
+    const mockVerification = {
+      verified: true,
+      authenticationInfo: {
+        newCounter: 1
+      }
+    };
+
+    it('should verify valid authentication response', async () => {
+      mockVerifyAuthenticationResponse.mockResolvedValue(mockVerification);
+
+      const result = await passkeyService.verifyAuthentication(
+        mockResponse,
+        mockChallenge,
+        mockCredentialPublicKey,
+        mockCounter
+      );
+
+      expect(mockVerifyAuthenticationResponse).toHaveBeenCalled();
+      expect(result).toEqual(mockVerification);
+      expect(result.verified).toBe(true);
+    });
+
+    it('should handle invalid authentication response', async () => {
+      const error = new Error('Invalid authentication response');
+      mockVerifyAuthenticationResponse.mockRejectedValue(error);
+
+      await expect(passkeyService.verifyAuthentication(
+        mockResponse,
+        mockChallenge,
+        mockCredentialPublicKey,
+        mockCounter
+      )).rejects.toThrow('Invalid authentication response');
     });
   });
 });

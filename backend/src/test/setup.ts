@@ -1,4 +1,3 @@
-// Jest测试全局设置
 import { config } from 'dotenv';
 import mongoose from 'mongoose';
 

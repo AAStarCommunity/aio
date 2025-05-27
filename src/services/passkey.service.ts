@@ -27,23 +27,20 @@ export class PasskeyService {
       throw new AppError(400, '该邮箱已注册');
     }
 
-    const options: GenerateRegistrationOptionsOpts = {
+    const options = await generateRegistrationOptions({
       rpName,
       rpID,
-      userID: email,
+      userID: Buffer.from(email).toString('base64url'),
       userName: email,
-      timeout: 60000,
       attestationType: 'none',
       authenticatorSelection: {
         residentKey: 'required',
         userVerification: 'preferred',
       },
-    };
+      supportedAlgorithmIDs: [-7, -257],
+    });
 
-    const registrationOptions = await generateRegistrationOptions(options);
-    
-    // 返回注册选项
-    return registrationOptions;
+    return options;
   }
 
   // 验证注册响应
@@ -58,45 +55,50 @@ export class PasskeyService {
         expectedChallenge: challenge,
         expectedOrigin: origin,
         expectedRPID: rpID,
+        expectedType: 'webauthn.create',
+        requireUserVerification: false,
       });
 
-      if (!verification.verified || !verification.registrationInfo) {
-        throw new AppError(400, '注册验证失败');
+      if (verification.verified) {
+        const { registrationInfo } = verification;
+        const { credentialPublicKey, credentialID, counter } = registrationInfo;
+
+        // 创建新用户
+        const user = new User({
+          email,
+          credentialId: Buffer.from(credentialID).toString('base64url'),
+          credentialPublicKey: Buffer.from(credentialPublicKey),
+          counter,
+        });
+
+        await user.save();
+        return true;
       }
 
-      const { credentialID, credentialPublicKey, counter } = verification.registrationInfo;
-
-      return {
-        credentialID: Buffer.from(credentialID).toString('base64url'),
-        credentialPublicKey: Buffer.from(credentialPublicKey),
-        counter,
-      };
+      return false;
     } catch (error) {
-      logger.error('Passkey registration verification failed:', error);
+      logger.error('注册验证失败:', error);
       throw new AppError(400, '注册验证失败');
     }
   }
 
-  // 生成登录选项
+  // 生成认证选项
   async generateAuthenticationOptions(email: string) {
     const user = await User.findOne({ email });
     if (!user) {
       throw new AppError(404, '用户不存在');
     }
 
-    const options: GenerateAuthenticationOptionsOpts = {
-      timeout: 60000,
+    const options = await generateAuthenticationOptions({
+      rpID,
       allowCredentials: [{
         id: Buffer.from(user.credentialId, 'base64url'),
         type: 'public-key',
       }],
       userVerification: 'preferred',
-      rpID,
-    };
+    });
 
-    const authenticationOptions = await generateAuthenticationOptions(options);
-
-    return authenticationOptions;
+    return options;
   }
 
   // 验证登录响应
@@ -116,25 +118,26 @@ export class PasskeyService {
         expectedChallenge: challenge,
         expectedOrigin: origin,
         expectedRPID: rpID,
-        authenticator: {
-          credentialID: Buffer.from(user.credentialId, 'base64url'),
-          credentialPublicKey: user.credentialPublicKey,
+        expectedType: 'webauthn.get',
+        credential: {
+          id: user.credentialId,
+          publicKey: new Uint8Array(user.credentialPublicKey),
           counter: user.counter,
         },
+        requireUserVerification: false,
       });
 
-      if (!verification.verified) {
-        throw new AppError(401, '登录验证失败');
+      if (verification.verified) {
+        // 更新计数器
+        user.counter = verification.authenticationInfo.newCounter;
+        await user.save();
+        return true;
       }
 
-      // 更新计数器
-      user.counter = verification.authenticationInfo.newCounter;
-      await user.save();
-
-      return true;
+      return false;
     } catch (error) {
-      logger.error('Passkey authentication verification failed:', error);
-      throw new AppError(401, '登录验证失败');
+      logger.error('登录验证失败:', error);
+      throw new AppError(400, '登录验证失败');
     }
   }
 } 
