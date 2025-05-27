@@ -4,6 +4,7 @@ import { config } from '../../config';
 
 describe('BLS Node Integration Tests', () => {
   const BLS_NODE_URL = process.env.BLS_NODE_URL || 'http://localhost:3001';
+  const BLS_API_BASE = `${BLS_NODE_URL}/api/bls`;
   
   // 测试数据
   const testUserOp = {
@@ -34,35 +35,18 @@ describe('BLS Node Integration Tests', () => {
     it('should return healthy status', async () => {
       const response = await axios.get(`${BLS_NODE_URL}/health`);
       expect(response.status).toBe(200);
-      expect(response.data.status).toBe('healthy');
+      expect(response.data.status).toBe('ok');
     });
   });
 
   describe('BLS Signature Generation', () => {
     it('should generate valid BLS signature for UserOperation', async () => {
-      // 1. 计算UserOperation的哈希
-      const abiCoder = ethers.AbiCoder.defaultAbiCoder();
-      const encodedData = abiCoder.encode(
-        ['address', 'uint256', 'bytes', 'bytes', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'bytes', 'bytes'],
-        [
-          testUserOp.sender,
-          testUserOp.nonce,
-          testUserOp.initCode,
-          testUserOp.callData,
-          testUserOp.callGasLimit,
-          testUserOp.verificationGasLimit,
-          testUserOp.preVerificationGas,
-          testUserOp.maxFeePerGas,
-          testUserOp.maxPriorityFeePerGas,
-          testUserOp.paymasterAndData,
-          testUserOp.signature
-        ]
-      );
-      const userOpHash = ethers.keccak256(encodedData);
-
+      // 1. 准备消息
+      const message = 'Hello, this is a test message!';
+      
       // 2. 发送到BLS节点进行签名
-      const response = await axios.post(`${BLS_NODE_URL}/sign`, {
-        messageHash: userOpHash
+      const response = await axios.post(`${BLS_API_BASE}/sign`, {
+        message
       });
 
       expect(response.status).toBe(200);
@@ -72,76 +56,59 @@ describe('BLS Node Integration Tests', () => {
     });
 
     it('should verify BLS signature correctly', async () => {
-      // 1. 获取签名
-      const abiCoder = ethers.AbiCoder.defaultAbiCoder();
-      const encodedData = abiCoder.encode(
-        ['address', 'uint256', 'bytes', 'bytes', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'bytes', 'bytes'],
-        [
-          testUserOp.sender,
-          testUserOp.nonce,
-          testUserOp.initCode,
-          testUserOp.callData,
-          testUserOp.callGasLimit,
-          testUserOp.verificationGasLimit,
-          testUserOp.preVerificationGas,
-          testUserOp.maxFeePerGas,
-          testUserOp.maxPriorityFeePerGas,
-          testUserOp.paymasterAndData,
-          testUserOp.signature
-        ]
-      );
-      const userOpHash = ethers.keccak256(encodedData);
-
+      // 1. 准备消息
+      const message = 'Hello, this is another test message!';
+      
       // 2. 获取签名
-      const signResponse = await axios.post(`${BLS_NODE_URL}/sign`, {
-        messageHash: userOpHash
+      const signResponse = await axios.post(`${BLS_API_BASE}/sign`, {
+        message
       });
 
-      // 3. 验证签名
-      const verifyResponse = await axios.post(`${BLS_NODE_URL}/verify`, {
-        messageHash: userOpHash,
-        signature: signResponse.data.signature
+      // 3. 获取公钥
+      const publicKeyResponse = await axios.get(`${BLS_API_BASE}/public-key`);
+
+      // 4. 验证签名
+      const verifyResponse = await axios.post(`${BLS_API_BASE}/verify`, {
+        message,
+        signature: signResponse.data.signature,
+        publicKey: publicKeyResponse.data.publicKey
       });
 
       expect(verifyResponse.status).toBe(200);
-      expect(verifyResponse.data.isValid).toBe(true);
+      expect(verifyResponse.data.valid).toBe(true);
     });
   });
 
   describe('BLS Node Error Handling', () => {
     it('should handle invalid message hash', async () => {
       await expect(
-        axios.post(`${BLS_NODE_URL}/sign`, {
-          messageHash: 'invalid_hash'
+        axios.post(`${BLS_API_BASE}/sign`, {
+          message: ''
         })
       ).rejects.toThrow();
     });
 
     it('should handle invalid signature in verification', async () => {
-      const abiCoder = ethers.AbiCoder.defaultAbiCoder();
-      const encodedData = abiCoder.encode(
-        ['address'],
-        [testUserOp.sender]
-      );
-      const userOpHash = ethers.keccak256(encodedData);
+      const message = 'Test message for invalid signature';
+      const publicKeyResponse = await axios.get(`${BLS_API_BASE}/public-key`);
 
-      const response = await axios.post(`${BLS_NODE_URL}/verify`, {
-        messageHash: userOpHash,
-        signature: '0x1234'  // 无效签名
+      const response = await axios.post(`${BLS_API_BASE}/verify`, {
+        message,
+        signature: '0x1234',  // 无效签名
+        publicKey: publicKeyResponse.data.publicKey
       });
 
       expect(response.status).toBe(200);
-      expect(response.data.isValid).toBe(false);
+      expect(response.data.valid).toBe(false);
     });
   });
 
   describe('BLS Node Performance', () => {
     it('should handle multiple signature requests efficiently', async () => {
-      const requests = Array(5).fill(null).map(() => {
-        const randomBytes = ethers.randomBytes(32);
-        const randomHash = ethers.keccak256(randomBytes);
-        return axios.post(`${BLS_NODE_URL}/sign`, {
-          messageHash: randomHash
+      const requests = Array(5).fill(null).map((_, index) => {
+        const message = `Test message ${index}`;
+        return axios.post(`${BLS_API_BASE}/sign`, {
+          message
         });
       });
 
