@@ -3,6 +3,12 @@
   "version": "0.1.0",
   "description": "AAStar Backend Service",
   "scripts": {
+    "build": "nest build",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "start": "nest start",
+    "start:dev": "nest start --watch",
+    "start:debug": "nest start --debug --watch",
+    "start:prod": "node dist/main",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage"
@@ -11,14 +17,23 @@
     "@nestjs/common": "^10.0.0",
     "@nestjs/config": "^3.0.0",
     "@nestjs/core": "^10.0.0",
-    "@nestjs/platform-express": "^10.0.0",
+    "@nestjs/platform-express": "^10.4.18",
+    "@nestjs/schematics": "^11.0.5",
     "@nestjs/typeorm": "^10.0.0",
     "@noble/bls12-381": "^1.4.0",
+    "@simplewebauthn/server": "^13.1.1",
+    "@simplewebauthn/types": "^12.0.0",
+    "@viem/anvil": "^0.0.10",
     "axios": "^1.4.0",
     "ethers": "^6.14.3",
-    "typeorm": "^0.3.0"
+    "mongoose": "^8.15.1",
+    "morgan": "^1.10.0",
+    "permissionless": "^0.0.21",
+    "typeorm": "^0.3.0",
+    "viem": "^2.7.12"
   },
   "devDependencies": {
+    "@nestjs/cli": "^11.0.7",
     "@nestjs/testing": "^10.0.0",
     "@types/jest": "^29.5.0",
     "@types/node": "^20.0.0",

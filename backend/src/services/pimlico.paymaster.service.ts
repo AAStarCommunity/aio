@@ -1,18 +1,48 @@
+import { Injectable } from '@nestjs/common';
+import { JsonRpcProvider, formatEther } from 'ethers';
 import axios from 'axios';
+import config from '../config/config';
 import { IPaymasterService, PaymasterResponse } from '../interfaces/paymaster.interface';
 import { UserOperation } from '../types/userOperation.type';
-import { config } from '../config';
-import { ethers } from 'ethers';
 
+@Injectable()
 export class PimlicoPaymasterService implements IPaymasterService {
+  private readonly provider: JsonRpcProvider;
   private readonly apiKey: string;
   private readonly baseUrl: string;
-  private readonly provider: ethers.providers.JsonRpcProvider;
 
   constructor() {
-    this.apiKey = config.PIMLICO_API_KEY;
-    this.baseUrl = `https://api.pimlico.io/v1/${config.CHAIN_ID}`;
-    this.provider = new ethers.providers.JsonRpcProvider(config.RPC_URL);
+    this.provider = new JsonRpcProvider(config.ethereum.rpcUrl);
+    this.apiKey = config.bundler.pimlico.apiKey;
+    this.baseUrl = config.bundler.pimlico.url;
+  }
+
+  private async makeRequest(method: string, params: any[]) {
+    try {
+      const response = await axios.post(
+        this.baseUrl,
+        {
+          jsonrpc: '2.0',
+          id: 1,
+          method,
+          params
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiKey}`
+          }
+        }
+      );
+
+      if (response.data.error) {
+        throw new Error(response.data.error.message);
+      }
+
+      return response.data;
+    } catch (error) {
+      throw new Error(`Pimlico API request failed: ${error.message}`);
+    }
   }
 
   async getPaymasterSignature(userOp: UserOperation): Promise<PaymasterResponse> {
@@ -21,7 +51,7 @@ export class PimlicoPaymasterService implements IPaymasterService {
         `${this.baseUrl}/paymaster/sponsorUserOperation`,
         {
           userOperation: userOp,
-          entryPoint: config.ENTRY_POINT_ADDRESS,
+          entryPoint: config.ethereum.entryPointAddress,
         },
         {
           headers: {
@@ -63,7 +93,7 @@ export class PimlicoPaymasterService implements IPaymasterService {
           'x-api-key': this.apiKey,
         },
       });
-      return ethers.utils.formatEther(response.data.balance);
+      return formatEther(response.data.balance);
     } catch (error) {
       console.error('Failed to get paymaster balance:', error);
       throw new Error('Failed to get paymaster balance');
@@ -72,11 +102,20 @@ export class PimlicoPaymasterService implements IPaymasterService {
 
   async getCurrentGasPrice(): Promise<string> {
     try {
-      const gasPrice = await this.provider.getGasPrice();
-      return gasPrice.toString();
+      const feeData = await this.provider.getFeeData();
+      return (feeData.gasPrice || feeData.maxFeePerGas || 0).toString();
     } catch (error) {
       console.error('Failed to get current gas price:', error);
       throw new Error('Failed to get current gas price');
+    }
+  }
+
+  async getBalance(): Promise<string> {
+    try {
+      const response = await this.makeRequest('pm_accountBalance', []);
+      return formatEther(response.result.balance);
+    } catch (error) {
+      throw new Error(`Failed to get paymaster balance: ${error.message}`);
     }
   }
 } 

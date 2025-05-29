@@ -1,17 +1,15 @@
 import { Request, Response } from 'express';
 import { UserOperationService, TransactionRequest } from '../services/UserOperationService';
-import { UserOperationRequest } from '../services/BundlerService';
+import { UserOperationRequest } from '../types/userOperation.type';
 import logger from '../utils/logger';
+import { Controller, Post, Body, Get, Param } from '@nestjs/common';
 
 /**
  * 用户操作控制器
  */
+@Controller('api/userop')
 export class UserOperationController {
-  private readonly userOpService: UserOperationService;
-
-  constructor() {
-    this.userOpService = new UserOperationService();
-  }
+  constructor(private readonly userOperationService: UserOperationService) {}
 
   /**
    * 创建用户操作
@@ -34,7 +32,7 @@ export class UserOperationController {
         operation: txRequest.operation || 0
       };
       
-      const userOp = await this.userOpService.createUserOperation(
+      const userOp = await this.userOperationService.createUserOperation(
         accountAddress,
         transaction,
         paymasterEnabled || false
@@ -47,57 +45,14 @@ export class UserOperationController {
     }
   }
 
-  /**
-   * 发送用户操作
-   * @param req 请求
-   * @param res 响应
-   */
-  async sendUserOperation(req: Request, res: Response): Promise<void> {
-    try {
-      const { userOperation } = req.body;
-      
-      if (!userOperation) {
-        res.status(400).json({ error: 'Missing user operation' });
-        return;
-      }
-      
-      const userOp: UserOperationRequest = userOperation;
-      
-      if (!userOp.signature || userOp.signature === '0x') {
-        res.status(400).json({ error: 'User operation must be signed before sending' });
-        return;
-      }
-      
-      const userOpHash = await this.userOpService.sendUserOperation(userOp);
-      
-      res.status(200).json({ userOpHash });
-    } catch (error) {
-      logger.error(`Error in sendUserOperation: ${error}`);
-      res.status(500).json({ error: `Failed to send user operation: ${error}` });
-    }
+  @Post()
+  async sendUserOperation(@Body() userOp: UserOperationRequest) {
+    return await this.userOperationService.sendUserOperation(userOp);
   }
 
-  /**
-   * 获取用户操作状态
-   * @param req 请求
-   * @param res 响应
-   */
-  async getUserOperationStatus(req: Request, res: Response): Promise<void> {
-    try {
-      const { userOpHash } = req.params;
-      
-      if (!userOpHash) {
-        res.status(400).json({ error: 'Missing user operation hash' });
-        return;
-      }
-      
-      const status = await this.userOpService.getUserOperationStatus(userOpHash);
-      
-      res.status(200).json({ status });
-    } catch (error) {
-      logger.error(`Error in getUserOperationStatus: ${error}`);
-      res.status(500).json({ error: `Failed to get user operation status: ${error}` });
-    }
+  @Get(':hash')
+  async getUserOperationStatus(@Param('hash') hash: string) {
+    return await this.userOperationService.getUserOperationStatus(hash);
   }
 
   /**
@@ -121,7 +76,7 @@ export class UserOperationController {
         operation: txRequest.operation || 0
       };
       
-      const gasEstimation = await this.userOpService.estimateTransactionGas(
+      const gasEstimation = await this.userOperationService.estimateTransactionGas(
         accountAddress,
         transaction,
         paymasterEnabled || false

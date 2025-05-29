@@ -1,9 +1,11 @@
+import { Injectable } from '@nestjs/common';
 import { ethers } from 'ethers';
 import { createPublicClient, http } from 'viem';
 import { sepolia } from 'viem/chains';
 import config from '../config/config';
 import logger from '../utils/logger';
-import { BundlerServiceFactory, IBundlerService, UserOperationRequest } from './BundlerService';
+import { BundlerService } from './BundlerService';
+import { UserOperationRequest, UserOperation } from '../types/userOperation.type';
 
 /**
  * 表示要执行的交易请求
@@ -15,24 +17,17 @@ export interface TransactionRequest {
   operation?: number; // 0 for CALL, 1 for DELEGATECALL
 }
 
-/**
- * 用户操作服务
- */
+@Injectable()
 export class UserOperationService {
-  private readonly provider: ethers.JsonRpcProvider;
-  private readonly bundlerService: IBundlerService;
-  private readonly entryPointAddress: string;
-  private readonly factoryAddress: string;
-  private readonly paymasterAddress: string;
-  private readonly chainId: number;
+  private readonly bundlerService: BundlerService;
+  private readonly publicClient;
 
-  constructor() {
-    this.entryPointAddress = config.ethereum.entryPointAddress;
-    this.factoryAddress = config.ethereum.accountFactoryAddress;
-    this.paymasterAddress = config.ethereum.paymasterAddress;
-    this.chainId = config.ethereum.chainId;
-    this.provider = new ethers.JsonRpcProvider(config.ethereum.rpcUrl);
-    this.bundlerService = BundlerServiceFactory.createBundlerService();
+  constructor(bundlerService: BundlerService) {
+    this.bundlerService = bundlerService;
+    this.publicClient = createPublicClient({
+      chain: sepolia,
+      transport: http(config.ethereum.rpcUrl)
+    });
   }
 
   /**
@@ -62,7 +57,7 @@ export class UserOperationService {
       const preVerificationGas = '50000';
       
       // 获取当前gas价格
-      const gasPrice = await this.provider.getFeeData();
+      const gasPrice = await this.bundlerService.provider.getFeeData();
       const maxFeePerGas = (gasPrice.maxFeePerGas || gasPrice.gasPrice || ethers.parseUnits('10', 'gwei')).toString();
       const maxPriorityFeePerGas = (gasPrice.maxPriorityFeePerGas || ethers.parseUnits('1', 'gwei')).toString();
       
@@ -82,8 +77,8 @@ export class UserOperationService {
       };
       
       // 如果需要Paymaster，设置paymasterAndData
-      if (paymasterEnabled && this.paymasterAddress !== '0x0000000000000000000000000000000000000000') {
-        userOp.paymasterAndData = this.paymasterAddress;
+      if (paymasterEnabled && this.bundlerService.paymasterAddress !== '0x0000000000000000000000000000000000000000') {
+        userOp.paymasterAndData = this.bundlerService.paymasterAddress;
       }
       
       // 估算gas费用
@@ -107,15 +102,9 @@ export class UserOperationService {
    */
   private async getAccountNonce(accountAddress: string): Promise<string> {
     try {
-      // 创建RPC客户端
-      const client = createPublicClient({
-        chain: sepolia,
-        transport: http(config.ethereum.rpcUrl),
-      });
-      
       // 调用EntryPoint合约的getNonce方法
       const data = {
-        address: this.entryPointAddress as `0x${string}`,
+        address: this.bundlerService.entryPointAddress as `0x${string}`,
         abi: [
           {
             inputs: [
@@ -132,7 +121,7 @@ export class UserOperationService {
         args: [accountAddress as `0x${string}`, BigInt(0)]
       };
       
-      const nonce = await client.readContract(data);
+      const nonce = await this.publicClient.readContract(data);
       return nonce.toString();
     } catch (error) {
       logger.error(`Error getting account nonce: ${error}`);
@@ -166,40 +155,37 @@ export class UserOperationService {
    */
   async sendUserOperation(userOp: UserOperationRequest): Promise<string> {
     try {
-      logger.info(`Sending user operation: ${JSON.stringify(userOp)}`);
-      
-      // 确保用户操作已经签名
-      if (!userOp.signature || userOp.signature === '0x') {
-        throw new Error('User operation must be signed before sending');
-      }
-      
-      // 发送用户操作
-      const userOpHash = await this.bundlerService.sendUserOperation(userOp);
-      
-      logger.info(`User operation sent, hash: ${userOpHash}`);
-      return userOpHash;
+      // 将 UserOperationRequest 转换为 UserOperation
+      const convertedUserOp: UserOperation = {
+        sender: userOp.sender as `0x${string}`,
+        nonce: BigInt(userOp.nonce),
+        initCode: userOp.initCode as `0x${string}`,
+        callData: userOp.callData as `0x${string}`,
+        callGasLimit: BigInt(userOp.callGasLimit),
+        verificationGasLimit: BigInt(userOp.verificationGasLimit),
+        preVerificationGas: BigInt(userOp.preVerificationGas),
+        maxFeePerGas: BigInt(userOp.maxFeePerGas),
+        maxPriorityFeePerGas: BigInt(userOp.maxPriorityFeePerGas),
+        paymasterAndData: userOp.paymasterAndData as `0x${string}`,
+        signature: userOp.signature as `0x${string}`
+      };
+
+      return await this.bundlerService.sendUserOperation(convertedUserOp);
     } catch (error) {
-      logger.error(`Error sending user operation: ${error}`);
-      throw new Error(`Failed to send user operation: ${error}`);
+      throw new Error(`Failed to send user operation: ${error.message}`);
     }
   }
 
   /**
    * 获取用户操作状态
-   * @param userOpHash 用户操作哈希
+   * @param hash 用户操作哈希
    * @returns 用户操作状态
    */
-  async getUserOperationStatus(userOpHash: string): Promise<any> {
+  async getUserOperationStatus(hash: string): Promise<any> {
     try {
-      logger.info(`Getting user operation status, hash: ${userOpHash}`);
-      
-      const status = await this.bundlerService.getUserOperationStatus(userOpHash);
-      
-      logger.info(`User operation status: ${JSON.stringify(status)}`);
-      return status;
+      return await this.bundlerService.getUserOperationReceipt(hash);
     } catch (error) {
-      logger.error(`Error getting user operation status: ${error}`);
-      throw new Error(`Failed to get user operation status: ${error}`);
+      throw new Error(`Failed to get user operation status: ${error.message}`);
     }
   }
 

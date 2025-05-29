@@ -9,6 +9,14 @@ interface Config {
   nodeEnv: string;
   mongoUri: string;
   logLevel: string;
+  database: {
+    type: 'postgres';
+    host: string;
+    port: number;
+    username: string;
+    password: string;
+    name: string;
+  };
   ethereum: {
     rpcUrl: string;
     chainId: number;
@@ -34,6 +42,14 @@ const config: Config = {
   nodeEnv: process.env.NODE_ENV || 'development',
   mongoUri: process.env.MONGO_URI || 'mongodb://localhost:27017/aastar',
   logLevel: process.env.LOG_LEVEL || 'info',
+  database: {
+    type: 'postgres',
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT || '5432', 10),
+    username: process.env.DB_USERNAME || 'postgres',
+    password: process.env.DB_PASSWORD || 'postgres',
+    name: process.env.DB_NAME || 'aastar',
+  },
   ethereum: {
     rpcUrl: process.env.ETH_RPC_URL || 'https://sepolia.infura.io/v3/your-api-key',
     chainId: parseInt(process.env.CHAIN_ID || '11155111', 10), // Sepolia测试网
