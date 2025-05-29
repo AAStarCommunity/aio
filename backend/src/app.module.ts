@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { MongooseModule } from '@nestjs/mongoose';
 import config from './config/config';
 import { UserOperationController } from './controllers/UserOperationController';
 import { UserOperationService } from './services/UserOperationService';
@@ -11,17 +11,16 @@ import { PimlicoPaymasterService } from './services/pimlico.paymaster.service';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [() => config],
+      load: [config],
     }),
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: config.database.host,
-      port: config.database.port,
-      username: config.database.username,
-      password: config.database.password,
-      database: config.database.name,
-      entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: config.nodeEnv === 'development',
+    MongooseModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
+        uri: configService.get<string>('mongoUri'),
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+      }),
+      inject: [ConfigService],
     }),
   ],
   controllers: [UserOperationController],

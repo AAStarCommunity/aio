@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ethers } from 'ethers';
 import { createPublicClient, http } from 'viem';
 import { sepolia } from 'viem/chains';
-import config from '../config/config';
+import configuration from '../config/configuration';
 import logger from '../utils/logger';
 import { BundlerService } from './BundlerService';
 import { UserOperationRequest, UserOperation } from '../types/userOperation.type';
@@ -22,11 +22,19 @@ export class UserOperationService {
   private readonly bundlerService: BundlerService;
   private readonly publicClient;
 
+  /**
+   * 确保字符串有0x前缀并转换为正确的类型
+   */
+  private ensureHexPrefix(value: string | number): `0x${string}` {
+    const strValue = value.toString();
+    return (strValue.startsWith('0x') ? strValue : `0x${strValue}`) as `0x${string}`;
+  }
+
   constructor(bundlerService: BundlerService) {
     this.bundlerService = bundlerService;
     this.publicClient = createPublicClient({
       chain: sepolia,
-      transport: http(config.ethereum.rpcUrl)
+      transport: http(configuration.ethereum.rpcUrl)
     });
   }
 
@@ -63,22 +71,22 @@ export class UserOperationService {
       
       // 初始用户操作
       const userOp: UserOperationRequest = {
-        sender: accountAddress,
-        nonce: nonce,
-        initCode: '0x', // 已经部署的账户不需要initCode
-        callData: callData,
-        callGasLimit: callGasLimit,
-        verificationGasLimit: verificationGasLimit,
-        preVerificationGas: preVerificationGas,
-        maxFeePerGas: maxFeePerGas,
-        maxPriorityFeePerGas: maxPriorityFeePerGas,
-        paymasterAndData: '0x', // 默认不使用paymaster
-        signature: '0x' // 暂时为空，后续会添加签名
+        sender: this.ensureHexPrefix(accountAddress),
+        nonce: this.ensureHexPrefix(nonce),
+        initCode: '0x' as `0x${string}`, // 已经部署的账户不需要initCode
+        callData: this.ensureHexPrefix(callData),
+        callGasLimit: this.ensureHexPrefix(callGasLimit),
+        verificationGasLimit: this.ensureHexPrefix(verificationGasLimit),
+        preVerificationGas: this.ensureHexPrefix(preVerificationGas),
+        maxFeePerGas: this.ensureHexPrefix(maxFeePerGas),
+        maxPriorityFeePerGas: this.ensureHexPrefix(maxPriorityFeePerGas),
+        paymasterAndData: '0x' as `0x${string}`, // 默认不使用paymaster
+        signature: '0x' as `0x${string}` // 暂时为空，后续会添加签名
       };
       
       // 如果需要Paymaster，设置paymasterAndData
       if (paymasterEnabled && this.bundlerService.paymasterAddress !== '0x0000000000000000000000000000000000000000') {
-        userOp.paymasterAndData = this.bundlerService.paymasterAddress;
+        userOp.paymasterAndData = this.ensureHexPrefix(this.bundlerService.paymasterAddress);
       }
       
       // 估算gas费用

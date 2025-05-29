@@ -3,7 +3,7 @@ import cors from 'cors';
 import morgan from 'morgan';
 import fs from 'fs';
 import path from 'path';
-import config from './config/config';
+import configuration from './config/configuration';
 import logger from './utils/logger';
 import userOperationRoutes from './routes/userOperationRoutes';
 
@@ -36,14 +36,14 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 // 启动服务器
-const PORT = config.port;
+const PORT = configuration.port;
 app.listen(PORT, () => {
   logger.info(`Server running on port ${PORT}`);
-  logger.info(`Environment: ${config.nodeEnv}`);
-  logger.info(`EntryPoint address: ${config.ethereum.entryPointAddress}`);
-  logger.info(`AccountFactory address: ${config.ethereum.accountFactoryAddress}`);
-  logger.info(`Paymaster address: ${config.ethereum.paymasterAddress}`);
-  logger.info(`Active Bundler provider: ${config.bundler.activeProvider}`);
+  logger.info(`Environment: ${configuration.nodeEnv}`);
+  logger.info(`EntryPoint address: ${configuration.ethereum.entryPointAddress}`);
+  logger.info(`AccountFactory address: ${configuration.ethereum.accountFactoryAddress}`);
+  logger.info(`Paymaster address: ${configuration.ethereum.paymasterAddress}`);
+  logger.info(`Bundler URL: ${configuration.bundler.url}`);
 });
 
 export default app; 

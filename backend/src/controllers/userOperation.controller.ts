@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { UserOperationService } from '../services/userOperation.service';
+import { UserOperationService } from '../services/UserOperationService';
 import logger from '../utils/logger';
 
 export class UserOperationController {

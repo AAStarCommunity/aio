@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { Logger } from '@nestjs/common';
-import config from './config/config';
+import configuration from './config/configuration';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -9,16 +9,18 @@ async function bootstrap() {
   // 启用 CORS
   app.enableCors();
   
-  const port = config.port || 3000;
+  const port = configuration.port || 3000;
   await app.listen(port);
   
   const logger = new Logger('Bootstrap');
   logger.log(`Server running on port ${port}`);
-  logger.log(`Environment: ${config.nodeEnv}`);
-  logger.log(`EntryPoint address: ${config.ethereum.entryPointAddress}`);
-  logger.log(`AccountFactory address: ${config.ethereum.accountFactoryAddress}`);
-  logger.log(`Paymaster address: ${config.ethereum.paymasterAddress}`);
-  logger.log(`Active Bundler provider: ${config.bundler.activeProvider}`);
+  logger.log(`Environment: ${configuration.nodeEnv}`);
+  logger.log(`RPC URL: ${configuration.ethereum.rpcUrl}`);
+  logger.log(`Chain ID: ${configuration.ethereum.chainId}`);
+  logger.log(`EntryPoint address: ${configuration.ethereum.entryPointAddress}`);
+  logger.log(`AccountFactory address: ${configuration.ethereum.accountFactoryAddress}`);
+  logger.log(`Paymaster address: ${configuration.ethereum.paymasterAddress}`);
+  logger.log(`Bundler URL: ${configuration.bundler.url}`);
 }
 
 bootstrap(); 

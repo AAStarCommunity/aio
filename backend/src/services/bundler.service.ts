@@ -1,12 +1,13 @@
 import { ethers } from 'ethers';
-import { UserOperation } from '../types/userOperation';
+import { UserOperationRequest } from '../types/userOperation.type';
 import logger from '../utils/logger';
+import configuration from '../config/configuration';
 
 export class BundlerService {
   private provider: ethers.JsonRpcProvider;
 
   constructor() {
-    this.provider = new ethers.JsonRpcProvider(process.env.BUNDLER_URL || 'http://localhost:3000');
+    this.provider = new ethers.JsonRpcProvider(configuration.bundler.url);
   }
 
   async getNonce(address: string): Promise<string> {
@@ -18,7 +19,7 @@ export class BundlerService {
     }
   }
 
-  async estimateUserOperationGas(userOp: UserOperation): Promise<{
+  async estimateUserOperationGas(userOp: UserOperationRequest): Promise<{
     callGasLimit: string;
     verificationGasLimit: string;
     preVerificationGas: string;
@@ -43,7 +44,7 @@ export class BundlerService {
     }
   }
 
-  async sendUserOperation(userOp: UserOperation): Promise<string> {
+  async sendUserOperation(userOp: UserOperationRequest): Promise<string> {
     try {
       return await this.provider.send('eth_sendUserOperation', [userOp]);
     } catch (error) {
@@ -51,4 +52,4 @@ export class BundlerService {
       throw error;
     }
   }
-} 
+}

@@ -3,7 +3,7 @@ import { createPublicClient, http, createWalletClient, Account } from 'viem';
 import { sepolia } from 'viem/chains';
 import { createSmartAccountClient } from 'permissionless';
 import { UserOperation, UserOperationRequest } from '../types/userOperation.type';
-import config from '../config/config';
+import configuration from '../config/configuration';
 import logger from '../utils/logger';
 import { JsonRpcProvider } from 'ethers';
 
@@ -18,18 +18,18 @@ export class BundlerService {
   constructor() {
     this.publicClient = createPublicClient({
       chain: sepolia,
-      transport: http(config.ethereum.rpcUrl)
+      transport: http(configuration.ethereum.rpcUrl)
     });
 
     this.smartAccountClient = createSmartAccountClient({
       chain: sepolia,
-      transport: http(config.ethereum.rpcUrl),
-      account: config.ethereum.entryPointAddress as `0x${string}`,
+      transport: http(configuration.ethereum.rpcUrl),
+      account: configuration.ethereum.entryPointAddress as `0x${string}`,
     });
 
-    this.provider = new JsonRpcProvider(config.ethereum.rpcUrl);
-    this.entryPointAddress = config.ethereum.entryPointAddress;
-    this.paymasterAddress = config.ethereum.paymasterAddress;
+    this.provider = new JsonRpcProvider(configuration.ethereum.rpcUrl);
+    this.entryPointAddress = configuration.ethereum.entryPointAddress;
+    this.paymasterAddress = configuration.ethereum.paymasterAddress;
   }
 
   async sendUserOperation(userOp: UserOperation) {

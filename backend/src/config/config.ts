@@ -1,5 +1,5 @@
-import dotenv from 'dotenv';
-import path from 'path';
+import * as dotenv from 'dotenv';
+import * as path from 'path';
 
 // 加载环境变量
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
@@ -9,14 +9,6 @@ interface Config {
   nodeEnv: string;
   mongoUri: string;
   logLevel: string;
-  database: {
-    type: 'postgres';
-    host: string;
-    port: number;
-    username: string;
-    password: string;
-    name: string;
-  };
   ethereum: {
     rpcUrl: string;
     chainId: number;
@@ -25,15 +17,11 @@ interface Config {
     paymasterAddress: string;
   };
   bundler: {
-    pimlico: {
-      apiKey: string;
-      url: string;
-    };
-    stackup: {
-      apiKey: string;
-      url: string;
-    };
-    activeProvider: 'pimlico' | 'stackup';
+    url: string;
+  };
+  paymaster: {
+    apiKey: string;
+    url: string;
   };
 }
 
@@ -42,32 +30,39 @@ const config: Config = {
   nodeEnv: process.env.NODE_ENV || 'development',
   mongoUri: process.env.MONGO_URI || 'mongodb://localhost:27017/aastar',
   logLevel: process.env.LOG_LEVEL || 'info',
-  database: {
-    type: 'postgres',
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '5432', 10),
-    username: process.env.DB_USERNAME || 'postgres',
-    password: process.env.DB_PASSWORD || 'postgres',
-    name: process.env.DB_NAME || 'aastar',
-  },
   ethereum: {
-    rpcUrl: process.env.ETH_RPC_URL || 'https://sepolia.infura.io/v3/your-api-key',
+    rpcUrl: process.env.ETH_RPC_URL || 'https://sepolia.infura.io/v3/',
     chainId: parseInt(process.env.CHAIN_ID || '11155111', 10), // Sepolia测试网
-    entryPointAddress: process.env.ENTRY_POINT_ADDRESS || '0x0000000000000000000000000000000000000000',
-    accountFactoryAddress: process.env.ACCOUNT_FACTORY_ADDRESS || '0x0000000000000000000000000000000000000000',
-    paymasterAddress: process.env.PAYMASTER_ADDRESS || '0x0000000000000000000000000000000000000000',
+    entryPointAddress: process.env.ENTRY_POINT_ADDRESS || '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789',
+    accountFactoryAddress: process.env.ACCOUNT_FACTORY_ADDRESS || '0x9406Cc6185a346906296840746125a0E44976454',
+    paymasterAddress: process.env.PAYMASTER_ADDRESS || '0xE93ECa6595fe94091DC1af46aaC2A8b5D7990770',
   },
   bundler: {
-    pimlico: {
-      apiKey: process.env.PIMLICO_API_KEY || '',
-      url: process.env.PIMLICO_URL || 'https://api.pimlico.io/v1/sepolia/rpc',
-    },
-    stackup: {
-      apiKey: process.env.STACKUP_API_KEY || '',
-      url: process.env.STACKUP_URL || 'https://api.stackup.sh/v1/node/sepolia',
-    },
-    activeProvider: (process.env.ACTIVE_BUNDLER as 'pimlico' | 'stackup') || 'pimlico',
+    url: process.env.BUNDLER_URL || 'https://api.pimlico.io/v1/sepolia/rpc',
+  },
+  paymaster: {
+    apiKey: process.env.PIMLICO_API_KEY || '',
+    url: process.env.PIMLICO_URL || 'https://api.pimlico.io/v1/sepolia/rpc',
   },
 };
 
-export default config; 
+export default () => ({
+  port: parseInt(process.env.PORT || '3000', 10),
+  nodeEnv: process.env.NODE_ENV || 'development',
+  mongoUri: process.env.MONGO_URI || 'mongodb://localhost:27017/aastar',
+  logLevel: process.env.LOG_LEVEL || 'info',
+  ethereum: {
+    rpcUrl: process.env.ETH_RPC_URL || 'https://sepolia.infura.io/v3/',
+    chainId: parseInt(process.env.CHAIN_ID || '11155111', 10), // Sepolia测试网
+    entryPointAddress: process.env.ENTRY_POINT_ADDRESS || '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789',
+    accountFactoryAddress: process.env.ACCOUNT_FACTORY_ADDRESS || '0x9406Cc6185a346906296840746125a0E44976454',
+    paymasterAddress: process.env.PAYMASTER_ADDRESS || '0xE93ECa6595fe94091DC1af46aaC2A8b5D7990770',
+  },
+  bundler: {
+    url: process.env.BUNDLER_URL || 'https://api.pimlico.io/v1/sepolia/rpc',
+  },
+  paymaster: {
+    apiKey: process.env.PIMLICO_API_KEY || '',
+    url: process.env.PIMLICO_URL || 'https://api.pimlico.io/v1/sepolia/rpc',
+  },
+});
