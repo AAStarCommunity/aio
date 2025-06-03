@@ -7,7 +7,7 @@ import path from 'path';
 import config from './config/config';
 import logger from './utils/logger';
 import blsRoutes from './routes/blsRoutes';
-import { connectDB } from './config/database';
+import { connectDatabase } from './config/database';
 
 // 创建Express应用
 const app = express();
@@ -48,7 +48,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 const startServer = async () => {
   try {
     // 连接数据库
-    await connectDB();
+    await connectDatabase();
     logger.info('Successfully connected to MongoDB');
 
     app.listen(config.port, () => {
