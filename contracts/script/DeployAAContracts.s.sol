@@ -31,8 +31,8 @@ contract DeployAAContracts is Script {
         console.log("AAPaymaster deployed at: ", address(paymaster));
         
         // 4. 为Paymaster存入初始资金（1 ETH）
-        paymaster.deposit{value: 1 ether}();
-        console.log("Funded Paymaster with 1 ETH");
+        entryPoint.deposit{value: 1 ether}();
+        console.log("Funded EntryPoint with 1 ETH");
         
         // 5. 创建一个测试账户，用于验证部署是否成功
         bytes memory blsPublicKey = new bytes(48);

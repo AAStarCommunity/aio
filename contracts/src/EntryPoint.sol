@@ -85,7 +85,7 @@ contract EntryPoint is IEntryPoint, ReentrancyGuard {
     /**
      * @dev 验证用户操作
      */
-    function _validateUserOp(UserOperation calldata userOp, bytes32 userOpHash) internal view {
+    function _validateUserOp(UserOperation calldata userOp, bytes32 userOpHash) internal {
         // 1. 基本验证
         if (userOp.callGasLimit == 0 || userOp.verificationGasLimit == 0) {
             revert InvalidUserOp();

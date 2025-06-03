@@ -51,3 +51,4 @@ pids
 *.pid.lock 
 
 bls-node/coverage/
+contracts/broadcast/*
