@@ -7,6 +7,7 @@ import path from 'path';
 import config from './config/config';
 import logger from './utils/logger';
 import blsRoutes from './routes/blsRoutes';
+import { connectDB } from './config/database';
 
 // 创建Express应用
 const app = express();
@@ -44,12 +45,25 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 // 启动服务器
-app.listen(config.port, () => {
-  logger.info(`BLS node server is running on port ${config.port}`);
-  logger.info(`Environment: ${config.nodeEnv}`);
-  logger.info(`Node ID: ${config.nodeId}`);
-  logger.info(`Log level: ${config.logLevel}`);
-  logger.info(`Master node: ${config.isMasterNode}`);
-});
+const startServer = async () => {
+  try {
+    // 连接数据库
+    await connectDB();
+    logger.info('Successfully connected to MongoDB');
 
-export default app; 
+    app.listen(config.port, () => {
+      logger.info(`BLS node server is running on port ${config.port}`);
+      logger.info(`Environment: ${config.nodeEnv}`);
+      logger.info(`Node ID: ${config.nodeId}`);
+      logger.info(`Log level: ${config.logLevel}`);
+      logger.info(`Master node: ${config.isMasterNode}`);
+    });
+  } catch (error) {
+    logger.error('Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+startServer();
+
+export default app;

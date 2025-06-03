@@ -9,6 +9,9 @@ interface Config {
   nodeEnv: string;
   nodeId: string;
   logLevel: string;
+  node: {
+    url: string;
+  };
   ethereum: {
     rpcUrl: string;
     chainId: number;
@@ -27,6 +30,9 @@ const config: Config = {
   nodeEnv: process.env.NODE_ENV || 'development',
   nodeId: process.env.NODE_ID || 'node1',
   logLevel: process.env.LOG_LEVEL || 'info',
+  node: {
+    url: process.env.NODE_URL || `http://localhost:${process.env.PORT || '3001'}`,
+  },
   ethereum: {
     rpcUrl: process.env.ETH_RPC_URL || 'https://sepolia.infura.io/v3/your-api-key',
     chainId: parseInt(process.env.CHAIN_ID || '11155111', 10), // Sepolia测试网

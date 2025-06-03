@@ -63,9 +63,41 @@ export class NodeService {
    */
   public async registerNode(): Promise<string> {
     try {
+      // 获取节点信息
+      const nodeId = config.nodeId;
       const publicKey = this.blsService.getPublicKey();
-      const tx = await this.registryContract.registerNode(publicKey);
+      const url = config.node.url;
+
+      // 验证参数
+      if (!nodeId) {
+        throw new Error('Node ID is required');
+      }
+      if (!url) {
+        throw new Error('Node URL is required');
+      }
+      if (!publicKey || publicKey.length !== 48) {
+        throw new Error('Invalid BLS public key (must be 48 bytes)');
+      }
+
+      // 检查是否已注册
+      const node = await this.registryContract.getNode(nodeId);
+      if (node.registeredAt !== 0n) {
+        throw new Error(`Node ${nodeId} is already registered`);
+      }
+
+      // 注册节点
+      logger.info(`Registering node ${nodeId} with URL ${url}`);
+      const tx = await this.registryContract.registerNode(nodeId, publicKey, url);
       const receipt = await tx.wait();
+      
+      // 添加到本地节点列表
+      this.addNode({
+        nodeId,
+        publicKey,
+        url
+      });
+
+      logger.info(`Node registered successfully. Transaction hash: ${receipt.hash}`);
       return receipt.hash;
     } catch (error) {
       logger.error('Failed to register node:', error);
@@ -142,10 +174,28 @@ export class NodeService {
   }
 
   /**
-   * 获取节点
+   * 获取节点信息（从本地缓存）
    */
   public getNode(nodeId: string): NodeInfo | undefined {
     return this.nodes.get(nodeId);
+  }
+
+  /**
+   * 从合约获取节点信息
+   */
+  public async getNodeFromContract(nodeId: string): Promise<{
+    publicKey: string;
+    url: string;
+    registeredAt: bigint;
+    active: boolean;
+  }> {
+    try {
+      const node = await this.registryContract.getNode(nodeId);
+      return node;
+    } catch (error) {
+      logger.error(`Failed to get node from contract: ${error}`);
+      throw error;
+    }
   }
 
   /**

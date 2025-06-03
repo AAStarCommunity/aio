@@ -54,4 +54,15 @@ export interface AggregatedSignatureResult {
     publicKey: string;
   }[];
   totalSignatures: number;
-} 
+}
+
+/**
+ * 用户验证器接口
+ */
+export interface UserVerifier {
+  userId: string;
+  email: string;
+  credentialID: string;
+  credentialPublicKey: string;
+  counter: number;
+}

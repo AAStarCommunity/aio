@@ -10,7 +10,8 @@
     "test": "jest --config jest.config.js",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "generate-keys": "ts-node scripts/generateKeys.ts"
+    "generate-keys": "ts-node scripts/generateKeys.ts",
+    "register-node": "ts-node scripts/register-node.ts"
   },
   "keywords": [
     "ethereum",
@@ -28,6 +29,8 @@
     "ethers": "^6.7.1",
     "express": "^4.18.2",
     "express-validator": "^7.0.1",
+    "helmet": "^8.1.0",
+    "mongoose": "^8.15.1",
     "morgan": "^1.10.0",
     "winston": "^3.10.0"
   },
