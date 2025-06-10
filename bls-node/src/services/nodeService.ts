@@ -3,7 +3,16 @@ import config from '../config/config';
 import logger from '../utils/logger';
 import { BLSService } from './blsService';
 import { NodeInfo } from '../types';
-import BLSNodeRegistryABI from '../abi/BLSNodeRegistry.json';
+
+// 定义 ABI
+const BLSNodeRegistryABI = [
+  "function registerNode(string nodeId, bytes publicKey, string url) external",
+  "function getNode(string nodeId) external view returns (bytes publicKey, string url, bool isActive, uint256 registeredAt)",
+  "function isActiveNode(string nodeId) external view returns (bool)",
+  "function getActiveNodes() external view returns (string[] activeNodeIds, bytes[] publicKeys, string[] urls)",
+  "function deactivateNode(string nodeId) external",
+  "event NodeRegistered(string indexed nodeId, bytes publicKey, string url)"
+];
 
 export class NodeService {
   private readonly provider: ethers.JsonRpcProvider;

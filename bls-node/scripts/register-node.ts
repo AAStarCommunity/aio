@@ -1,12 +1,19 @@
 import { ethers } from 'ethers';
 import dotenv from 'dotenv';
 import { BLSService } from '../src/services/blsService';
-import BLSNodeRegistryABI from '../src/abi/BLSNodeRegistry.json';
 import path from 'path';
 import fs from 'fs';
 
 // 加载环境变量
 dotenv.config();
+
+// 导入 ABI
+const BLSNodeRegistryABI = [
+  "function registerNode(string nodeId, bytes publicKey, string url) external",
+  "function getNode(string nodeId) external view returns (bytes publicKey, string url, bool isActive, uint256 registeredAt)",
+  "function isActiveNode(string nodeId) external view returns (bool)",
+  "event NodeRegistered(string indexed nodeId, bytes publicKey, string url)"
+];
 
 async function registerNode() {
   try {
@@ -43,7 +50,7 @@ async function registerNode() {
     const contractAddress = process.env.BLS_NODE_REGISTRY_ADDRESS!;
     const contract = new ethers.Contract(
       contractAddress,
-      BLSNodeRegistryABI.abi,
+      BLSNodeRegistryABI,
       wallet
     );
     
@@ -56,8 +63,8 @@ async function registerNode() {
     // 调用合约的registerNode函数
     const tx = await contract.registerNode(
       nodeId,
-      nodeUrl,
-      blsPublicKey
+      blsPublicKey,
+      nodeUrl
     );
     
     console.log(`交易已提交，交易哈希: ${tx.hash}`);

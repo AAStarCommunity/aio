@@ -44,13 +44,16 @@ contract AAPaymasterTest is Test {
         
         // 部署合约
         entryPoint = new EntryPoint();
+        vm.startPrank(owner);
         paymaster = new AAPaymaster(entryPoint);
         implementation = new AAAccount(entryPoint);
         factory = new AAAccountFactory(entryPoint);
         token = new MockERC20();
         
         // 设置初始状态
-        vm.startPrank(owner);
+        // 先给EntryPoint存入ETH
+        entryPoint.deposit{value: 10 ether}();
+        // 再给Paymaster存入ETH
         paymaster.deposit{value: 10 ether}();
         paymaster.configureToken(address(token), true, TOKEN_RATE, MIN_BALANCE);
         vm.stopPrank();
@@ -114,7 +117,7 @@ contract AAPaymasterTest is Test {
         
         // 添加免费配额
         vm.prank(owner);
-        paymaster.addFreeQuota(user, 1 ether, 2 ether);
+        paymaster.addFreeQuota(accountAddress, 1 ether, 2 ether);
         
         // 创建UserOperation
         UserOperation memory userOp = UserOperation({
@@ -153,9 +156,17 @@ contract AAPaymasterTest is Test {
             bytes32(uint256(123))
         );
         
+        // 计算所需代币数量
+        uint256 ethCost = 0.1 ether;
+        uint256 tokenAmount = (ethCost * 1e18) / TOKEN_RATE;
+        
+        // 给用户一些代币
+        token.mint(accountAddress, tokenAmount + 1e18);
+        
         // 授权paymaster使用代币
-        vm.prank(user);
+        vm.startPrank(accountAddress);
         token.approve(address(paymaster), type(uint256).max);
+        vm.stopPrank();
         
         // 创建UserOperation
         UserOperation memory userOp = UserOperation({
@@ -181,15 +192,15 @@ contract AAPaymasterTest is Test {
         
         // 模拟EntryPoint调用
         vm.prank(address(entryPoint));
-        bytes memory context = paymaster.validatePaymasterUserOp(userOp, bytes32(0), 0.1 ether);
+        bytes memory context = paymaster.validatePaymasterUserOp(userOp, bytes32(0), ethCost);
         
         // 验证返回的上下文
-        (PaymentType paymentType, address account, address tokenAddr, uint256 tokenAmount) = 
+        (PaymentType paymentType, address account, address tokenAddr, uint256 amount) = 
             abi.decode(context, (PaymentType, address, address, uint256));
         assertEq(uint8(paymentType), uint8(PaymentType.Token), "Payment type mismatch");
         assertEq(account, accountAddress, "Account mismatch");
         assertEq(tokenAddr, address(token), "Token mismatch");
-        assertEq(tokenAmount, (0.1 ether * 1e18) / TOKEN_RATE, "Token amount mismatch");
+        assertEq(amount, tokenAmount, "Token amount mismatch");
     }
     
     function test_RevertWhen_InsufficientQuota() public {
@@ -237,8 +248,9 @@ contract AAPaymasterTest is Test {
         );
         
         // 清空用户代币余额
-        vm.prank(user);
+        vm.startPrank(user);
         token.transfer(address(0x1), token.balanceOf(user));
+        vm.stopPrank();
         
         // 创建UserOperation
         UserOperation memory userOp = UserOperation({
@@ -278,7 +290,7 @@ contract AAPaymasterTest is Test {
         
         // 添加免费配额
         vm.prank(owner);
-        paymaster.addFreeQuota(user, 1 ether, 2 ether);
+        paymaster.addFreeQuota(accountAddress, 1 ether, 2 ether);
         
         // 准备postOp上下文
         bytes memory context = abi.encode(
@@ -288,14 +300,14 @@ contract AAPaymasterTest is Test {
         );
         
         // 记录初始配额
-        (uint256 initialAmount,,) = paymaster.freeQuotas(user);
+        (uint256 initialAmount,,) = paymaster.freeQuotas(accountAddress);
         
         // 模拟EntryPoint调用postOp
         vm.prank(address(entryPoint));
         paymaster.postOp(IPaymaster.PostOpMode.opSucceeded, context, 0.1 ether);
         
         // 验证配额被正确扣除
-        (uint256 remainingAmount,,) = paymaster.freeQuotas(user);
+        (uint256 remainingAmount,,) = paymaster.freeQuotas(accountAddress);
         assertEq(remainingAmount, initialAmount - 0.1 ether, "Quota deduction mismatch");
     }
     
@@ -307,14 +319,17 @@ contract AAPaymasterTest is Test {
             bytes32(uint256(123))
         );
         
-        // 授权paymaster使用代币
-        vm.startPrank(user);
-        token.approve(address(paymaster), type(uint256).max);
-        vm.stopPrank();
-        
         // 计算所需代币数量
         uint256 ethCost = 0.1 ether;
         uint256 tokenAmount = (ethCost * 1e18) / TOKEN_RATE;
+        
+        // 给用户一些代币
+        token.mint(accountAddress, tokenAmount + 1e18);
+        
+        // 授权paymaster使用代币
+        vm.startPrank(accountAddress);
+        token.approve(address(paymaster), type(uint256).max);
+        vm.stopPrank();
         
         // 准备postOp上下文
         bytes memory context = abi.encode(
@@ -325,14 +340,14 @@ contract AAPaymasterTest is Test {
         );
         
         // 记录初始余额
-        uint256 initialBalance = token.balanceOf(user);
+        uint256 initialBalance = token.balanceOf(accountAddress);
         
         // 模拟EntryPoint调用postOp
         vm.prank(address(entryPoint));
         paymaster.postOp(IPaymaster.PostOpMode.opSucceeded, context, ethCost);
         
         // 验证代币被正确扣除
-        uint256 remainingBalance = token.balanceOf(user);
+        uint256 remainingBalance = token.balanceOf(accountAddress);
         assertEq(remainingBalance, initialBalance - tokenAmount, "Token deduction mismatch");
     }
     
@@ -354,6 +369,10 @@ contract AAPaymasterTest is Test {
         // 快进时间超过一天
         skip(25 hours);
         
+        // 添加新的配额，应该重置
+        vm.prank(owner);
+        paymaster.addFreeQuota(user, 1 ether, 2 ether);
+        
         // 验证配额已重置
         (uint256 amount, uint256 resetTime,) = paymaster.freeQuotas(user);
         assertEq(amount, 1 ether, "Quota should be reset");
@@ -361,9 +380,8 @@ contract AAPaymasterTest is Test {
     }
     
     function test_EmergencyPause() public {
-        vm.startPrank(owner);
-        
         // 暂停合约
+        vm.prank(owner);
         paymaster.pause();
         assertTrue(paymaster.paused(), "Contract should be paused");
         
@@ -386,14 +404,14 @@ contract AAPaymasterTest is Test {
         });
         
         // 验证暂停状态下无法验证操作
-        vm.expectRevert("Pausable: paused");
+        vm.prank(address(entryPoint));
+        vm.expectRevert(bytes4(keccak256("EnforcedPause()")));
         paymaster.validatePaymasterUserOp(userOp, bytes32(0), 0.1 ether);
         
         // 恢复合约
+        vm.prank(owner);
         paymaster.unpause();
         assertFalse(paymaster.paused(), "Contract should be unpaused");
-        
-        vm.stopPrank();
     }
     
     function test_MultiTokenPayment() public {
@@ -405,9 +423,6 @@ contract AAPaymasterTest is Test {
         paymaster.configureToken(address(token2), true, TOKEN_RATE * 2, MIN_BALANCE);
         vm.stopPrank();
         
-        // 给用户一些代币2
-        token2.mint(user, 1000 * 1e18);
-        
         // 创建账户
         address accountAddress = factory.createAccount(
             user,
@@ -415,11 +430,24 @@ contract AAPaymasterTest is Test {
             bytes32(uint256(123))
         );
         
+        // 计算所需代币数量
+        uint256 ethCost = 0.1 ether;
+        uint256 token1Amount = (ethCost * 1e18) / TOKEN_RATE;
+        uint256 token2Amount = (ethCost * 1e18) / (TOKEN_RATE * 2);
+        
+        // 给用户一些代币
+        token.mint(accountAddress, token1Amount + 1e18);
+        token2.mint(accountAddress, token2Amount + 1e18);
+        
         // 授权paymaster使用两种代币
-        vm.startPrank(user);
+        vm.startPrank(accountAddress);
         token.approve(address(paymaster), type(uint256).max);
         token2.approve(address(paymaster), type(uint256).max);
         vm.stopPrank();
+        
+        // 记录初始余额
+        uint256 initialBalance1 = token.balanceOf(accountAddress);
+        uint256 initialBalance2 = token2.balanceOf(accountAddress);
         
         // 测试使用第一种代币支付
         UserOperation memory userOp1 = UserOperation({
@@ -468,21 +496,18 @@ contract AAPaymasterTest is Test {
         vm.startPrank(address(entryPoint));
         
         // 验证两种代币支付都能成功
-        bytes memory context1 = paymaster.validatePaymasterUserOp(userOp1, bytes32(0), 0.1 ether);
-        bytes memory context2 = paymaster.validatePaymasterUserOp(userOp2, bytes32(0), 0.1 ether);
+        bytes memory context1 = paymaster.validatePaymasterUserOp(userOp1, bytes32(0), ethCost);
+        bytes memory context2 = paymaster.validatePaymasterUserOp(userOp2, bytes32(0), ethCost);
         
         // 执行支付
-        paymaster.postOp(IPaymaster.PostOpMode.opSucceeded, context1, 0.1 ether);
-        paymaster.postOp(IPaymaster.PostOpMode.opSucceeded, context2, 0.1 ether);
+        paymaster.postOp(IPaymaster.PostOpMode.opSucceeded, context1, ethCost);
+        paymaster.postOp(IPaymaster.PostOpMode.opSucceeded, context2, ethCost);
         
         vm.stopPrank();
         
         // 验证两种代币都被正确扣除
-        uint256 token1Amount = (0.1 ether * 1e18) / TOKEN_RATE;
-        uint256 token2Amount = (0.1 ether * 1e18) / (TOKEN_RATE * 2);
-        
-        assertEq(token.balanceOf(user), 1000 * 1e18 - token1Amount, "Token1 deduction mismatch");
-        assertEq(token2.balanceOf(user), 1000 * 1e18 - token2Amount, "Token2 deduction mismatch");
+        assertEq(token.balanceOf(accountAddress), initialBalance1 - token1Amount, "Token1 deduction mismatch");
+        assertEq(token2.balanceOf(accountAddress), initialBalance2 - token2Amount, "Token2 deduction mismatch");
     }
     
     receive() external payable {}

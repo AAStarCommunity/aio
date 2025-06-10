@@ -1,0 +1,8 @@
+{
+  "nodeId": "node1",
+  "nodeUrl": "http://localhost:3000",
+  "blsPublicKey": "0xb708fd73d97a08a7a1e6874603b5149e07b31d6db58cfd89a8a70c5836f5bf2674b96c2358925057b183a3fdd0ce9aa0",
+  "transactionHash": "0xb95ef1e2ca4cde6d623480c814d110f489028cb3609e648e17549d376481d441",
+  "blockNumber": 4,
+  "timestamp": "2025-06-10T13:35:37.959Z"
+}

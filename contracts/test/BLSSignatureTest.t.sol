@@ -43,8 +43,8 @@ contract BLSSignatureTest is Test {
         );
         
         // 生成测试用的签名（在实际应用中，应使用BLS库计算）
-        blsSignature = new bytes(64);
-        for (uint8 i = 0; i < 64; i++) {
+        blsSignature = new bytes(128);
+        for (uint8 i = 0; i < 128; i++) {
             blsSignature[i] = bytes1(i);
         }
         
@@ -92,6 +92,9 @@ contract BLSSignatureTest is Test {
         
         // 在测试模式下验证签名（应该总是通过）
         assertTrue(account.isTesting());
+        
+        // 模拟EntryPoint调用
+        vm.prank(address(entryPoint));
         account.validateUserOp(userOp, userOpHash, 0);
     }
     

@@ -23,6 +23,7 @@ interface Config {
     publicKey: string;
   };
   isMasterNode: boolean;
+  mongodbUrl: string;
 }
 
 const config: Config = {
@@ -43,7 +44,8 @@ const config: Config = {
     privateKey: process.env.BLS_PRIVATE_KEY || '',
     publicKey: process.env.BLS_PUBLIC_KEY || '',
   },
-  isMasterNode: process.env.IS_MASTER_NODE === 'true'
+  isMasterNode: process.env.IS_MASTER_NODE === 'true',
+  mongodbUrl: process.env.MONGODB_URL || 'mongodb://localhost:27017/bls-node'
 };
 
 export default config; 

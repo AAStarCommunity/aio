@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./interfaces/IEntryPoint.sol";
 import "./interfaces/IAccount.sol";
 import "./interfaces/IPaymaster.sol";
+import "./interfaces/IAAAccountFactory.sol";
 import "./libraries/UserOperationLib.sol";
 
 /**
@@ -42,41 +43,48 @@ contract EntryPoint is IEntryPoint, ReentrancyGuard {
     error AccountValidationFailed();
 
     /**
-     * @dev 处理用户操作
+     * @dev 计算操作所需的gas费用
+     */
+    function _calculateGasCost(UserOperation calldata userOp) internal view returns (uint256 requiredFunds) {
+        uint256 gasPrice = tx.gasprice;
+        uint256 requiredGas = userOp.callGasLimit + userOp.verificationGasLimit + userOp.preVerificationGas;
+        return requiredGas * gasPrice;
+    }
+
+    /**
+     * @dev 处理单个用户操作
      * @param userOp 用户操作
      */
-    function handleOp(UserOperation calldata userOp) internal nonReentrant returns (bool success) {
+    function handleOp(UserOperation calldata userOp) external returns (bool success) {
+        require(msg.sender == address(this), "Only callable by self");
         // 1. 验证用户操作
         bytes32 userOpHash = userOp.hash();
         _validateUserOp(userOp, userOpHash);
 
         // 2. 支付 gas 费用
-        uint256 gasPrice = tx.gasprice;
-        uint256 requiredGas = userOp.callGasLimit + userOp.verificationGasLimit + userOp.preVerificationGas;
-        uint256 requiredFunds = requiredGas * gasPrice;
-
-        // 3. 从 paymaster 或账户中扣除费用
+        uint256 requiredFunds = _calculateGasCost(userOp);
         address paymaster = userOp.getPaymaster();
-        if (paymaster != address(0)) {
-            _deductFunds(paymaster, requiredFunds);
-        } else {
-            _deductFunds(userOp.sender, requiredFunds);
+        address payer = paymaster != address(0) ? paymaster : userOp.sender;
+        
+        // 检查存款是否足够
+        DepositInfo storage depositInfo = deposits[payer];
+        if (depositInfo.amount < requiredFunds) {
+            revert InsufficientDeposit();
         }
+        
+        // 扣除费用
+        _deductFunds(payer, requiredFunds);
 
-        // 4. 执行用户操作
+        // 3. 执行用户操作
         uint256 preGas = gasleft();
         success = _executeUserOp(userOp);
         uint256 actualGas = preGas - gasleft();
-        uint256 actualCost = actualGas * gasPrice;
+        uint256 actualCost = actualGas * tx.gasprice;
 
-        // 5. 退还多余的 gas 费用
+        // 4. 退还多余的 gas 费用
         uint256 refund = requiredFunds - actualCost;
         if (refund > 0) {
-            if (paymaster != address(0)) {
-                _refundFunds(paymaster, refund);
-            } else {
-                _refundFunds(userOp.sender, refund);
-            }
+            _refundFunds(payer, refund);
         }
 
         emit UserOperationEvent(userOpHash, userOp.sender, paymaster, userOp.nonce, success, actualCost);
@@ -90,7 +98,13 @@ contract EntryPoint is IEntryPoint, ReentrancyGuard {
     function handleOps(UserOperation[] calldata ops) external nonReentrant returns (bool[] memory success) {
         success = new bool[](ops.length);
         for (uint256 i = 0; i < ops.length; i++) {
-            success[i] = handleOp(ops[i]);
+            try this.handleOp(ops[i]) returns (bool result) {
+                success[i] = result;
+            } catch Error(string memory) {
+                success[i] = false;
+            } catch (bytes memory) {
+                success[i] = false;
+            }
         }
     }
 
@@ -198,11 +212,9 @@ contract EntryPoint is IEntryPoint, ReentrancyGuard {
     /**
      * @dev 模拟验证用户操作
      */
-    function simulateValidation(UserOperation calldata userOp) external pure {
+    function simulateValidation(UserOperation calldata userOp) external {
         bytes32 userOpHash = userOp.hash();
-        // 在这里我们只返回哈希，不进行实际验证
-        // 因为验证可能会修改状态
-        userOpHash;
+        _validateUserOp(userOp, userOpHash);
     }
 
     /**
@@ -226,17 +238,25 @@ contract EntryPoint is IEntryPoint, ReentrancyGuard {
         
         // 从initCode中提取工厂合约地址和构造函数参数
         address factory = address(bytes20(initCode[:20]));
-        bytes memory constructorArgs = initCode[20:];
+        bytes calldata constructorArgs = initCode[20:];
         
-        // 调用工厂合约的getAddress函数
-        (bool success, bytes memory result) = factory.staticcall(
-            abi.encodeWithSignature("getAddress(bytes)", constructorArgs)
+        // 解码构造函数参数（跳过函数选择器）
+        (address owner, bytes memory blsPublicKey, bytes32 salt) = abi.decode(
+            abi.encodePacked(constructorArgs[4:]),
+            (address, bytes, bytes32)
         );
         
-        require(success, "Failed to get sender address");
-        return abi.decode(result, (address));
+        // 调用工厂合约的getAddress函数
+        try IAAAccountFactory(factory).getAddress(owner, blsPublicKey, salt) returns (address addr) {
+            return addr;
+        } catch {
+            revert("Failed to get sender address");
+        }
     }
 
+    /**
+     * @dev 接收 ETH
+     */
     receive() external payable {
         this.deposit();
     }

@@ -51,6 +51,7 @@ contract AAPaymaster is IPaymaster, Ownable, ReentrancyGuard, Pausable {
     error InvalidRate();
     error QuotaStillValid();
     error InsufficientDeposit();
+    error InsufficientTokenAllowance();
     
     constructor(IEntryPoint _entryPoint) Ownable(msg.sender) {
         entryPoint = _entryPoint;
@@ -113,13 +114,13 @@ contract AAPaymaster is IPaymaster, Ownable, ReentrancyGuard, Pausable {
     function addFreeQuota(address account, uint256 amount, uint256 dailyLimit) external onlyOwner {
         FreeQuota storage quota = freeQuotas[account];
         
-        // 如果配额未过期，则累加
-        if (quota.resetTime > block.timestamp) {
-            quota.amount += amount;
-        } else {
-            // 重置配额
+        // 如果配额已过期，重置配额
+        if (block.timestamp > quota.resetTime) {
             quota.amount = amount;
             quota.resetTime = block.timestamp + QUOTA_PERIOD;
+        } else {
+            // 如果配额未过期，则累加
+            quota.amount += amount;
         }
         
         quota.dailyLimit = dailyLimit;
@@ -153,8 +154,7 @@ contract AAPaymaster is IPaymaster, Ownable, ReentrancyGuard, Pausable {
         if (msg.value < MIN_DEPOSIT) revert InsufficientDeposit();
         
         // 将存款转发给 EntryPoint
-        (bool success,) = address(entryPoint).call{value: msg.value}("");
-        require(success, "Deposit failed");
+        entryPoint.deposit{value: msg.value}();
     }
     
     /**
@@ -182,12 +182,22 @@ contract AAPaymaster is IPaymaster, Ownable, ReentrancyGuard, Pausable {
         TokenPaymentConfig memory config = tokenConfigs[token];
         if (!config.enabled) revert TokenNotSupported();
         
+        // 检查余额
         uint256 balance = IERC20(token).balanceOf(account);
         if (balance < tokenAmount) revert InsufficientTokenBalance();
+        
+        // 检查授权
+        uint256 allowance = IERC20(token).allowance(account, address(this));
+        if (allowance < tokenAmount) revert InsufficientTokenAllowance();
     }
     
     function _deductFreeQuota(address account, uint256 cost) internal {
         FreeQuota storage quota = freeQuotas[account];
+        
+        // 检查配额是否足够
+        if (quota.amount < cost) revert InsufficientQuota();
+        
+        // 扣除配额
         quota.amount -= cost;
         emit QuotaUsed(account, cost);
     }

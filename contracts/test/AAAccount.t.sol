@@ -99,9 +99,9 @@ contract AAAccountTest is Test {
         // 确保处于测试模式
         assertTrue(account.isTesting(), "Account should be in testing mode");
         
-        // 创建有效的签名（64字节）
-        bytes memory validSignature = new bytes(64);
-        for (uint i = 0; i < 64; i++) {
+        // 创建有效的签名（128字节）
+        bytes memory validSignature = new bytes(128);
+        for (uint i = 0; i < 128; i++) {
             validSignature[i] = bytes1(uint8(i));
         }
         
@@ -130,7 +130,7 @@ contract AAAccountTest is Test {
         assertTrue(account.isTesting(), "Account should be in testing mode");
         
         bytes32 messageHash = bytes32(uint256(3));
-        bytes memory aggregatedSignature = new bytes(64);
+        bytes memory aggregatedSignature = new bytes(128);
         bytes[] memory publicKeys = new bytes[](2);
         publicKeys[0] = blsPublicKey;
         publicKeys[1] = blsPublicKey;
