@@ -81,7 +81,10 @@ contract BLSSignatureTest is Test {
             maxFeePerGas: 1 gwei,
             maxPriorityFeePerGas: 1 gwei,
             paymasterAndData: "",
-            signature: blsSignature
+            signature: blsSignature,
+            target: address(0x123),
+            value: 0.1 ether,
+            data: ""
         });
         
         // 计算UserOperation哈希
@@ -133,7 +136,10 @@ contract BLSSignatureTest is Test {
             maxFeePerGas: 1 gwei,
             maxPriorityFeePerGas: 1 gwei,
             paymasterAndData: "",
-            signature: blsSignature
+            signature: blsSignature,
+            target: address(0x123),
+            value: 0.1 ether,
+            data: ""
         });
         
         bytes32 userOpHash = keccak256(abi.encodePacked("UserOperation"));

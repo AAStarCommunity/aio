@@ -15,21 +15,26 @@ contract MockEntryPoint is IEntryPoint {
 
     mapping(address => DepositInfo) public deposits;
 
-    function handleOps(UserOperation[] calldata ops, address payable beneficiary) external {
+    function handleOps(UserOperation[] calldata ops) external returns (bool[] memory success) {
         // Mock implementation
+        success = new bool[](ops.length);
         for (uint256 i = 0; i < ops.length; i++) {
-            handleOp(ops[i]);
+            success[i] = _handleOp(ops[i]);
         }
     }
 
     function handleOp(UserOperation calldata userOp) external returns (bool success) {
         // Mock implementation
+        return _handleOp(userOp);
+    }
+
+    function _handleOp(UserOperation calldata userOp) internal returns (bool) {
+        // Mock implementation
         return true;
     }
 
-    function simulateValidation(UserOperation calldata userOp) external pure returns (uint256 preOpGas, uint256 prefund) {
+    function simulateValidation(UserOperation calldata userOp) external {
         // Mock implementation
-        return (100000, 0.01 ether);
     }
 
     function getUserOpHash(UserOperation calldata userOp, uint48 validUntil, uint48 validAfter) external pure returns (bytes32) {

@@ -45,7 +45,7 @@ contract EntryPoint is IEntryPoint, ReentrancyGuard {
      * @dev 处理用户操作
      * @param userOp 用户操作
      */
-    function handleOp(UserOperation calldata userOp) external nonReentrant returns (bool success) {
+    function handleOp(UserOperation calldata userOp) internal nonReentrant returns (bool success) {
         // 1. 验证用户操作
         bytes32 userOpHash = userOp.hash();
         _validateUserOp(userOp, userOpHash);
@@ -80,6 +80,18 @@ contract EntryPoint is IEntryPoint, ReentrancyGuard {
         }
 
         emit UserOperationEvent(userOpHash, userOp.sender, paymaster, userOp.nonce, success, actualCost);
+    }
+
+    /**
+     * @dev 批量处理用户操作
+     * @param ops 用户操作数组
+     * @return success 每个操作的执行结果
+     */
+    function handleOps(UserOperation[] calldata ops) external nonReentrant returns (bool[] memory success) {
+        success = new bool[](ops.length);
+        for (uint256 i = 0; i < ops.length; i++) {
+            success[i] = handleOp(ops[i]);
+        }
     }
 
     /**
@@ -202,6 +214,27 @@ contract EntryPoint is IEntryPoint, ReentrancyGuard {
             validUntil,
             validAfter
         ));
+    }
+
+    /**
+     * @dev 从初始化代码中获取发送者地址
+     */
+    function getSenderAddress(bytes calldata initCode) external view returns (address) {
+        if (initCode.length < 20) {
+            return address(0);
+        }
+        
+        // 从initCode中提取工厂合约地址和构造函数参数
+        address factory = address(bytes20(initCode[:20]));
+        bytes memory constructorArgs = initCode[20:];
+        
+        // 调用工厂合约的getAddress函数
+        (bool success, bytes memory result) = factory.staticcall(
+            abi.encodeWithSignature("getAddress(bytes)", constructorArgs)
+        );
+        
+        require(success, "Failed to get sender address");
+        return abi.decode(result, (address));
     }
 
     receive() external payable {

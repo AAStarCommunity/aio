@@ -20,7 +20,7 @@ contract BLSNodeRegistryTest is Test {
 
     function setUp() public {
         // 部署合约
-        registry = new BLSNodeRegistry();
+        registry = new BLSNodeRegistry(address(this));
     }
 
     function testRegisterNode() public {

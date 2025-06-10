@@ -9,11 +9,11 @@ import "./UserOperation.sol";
  */
 interface IEntryPoint {
     /**
-     * @dev 处理用户操作
-     * @param userOp 用户操作
-     * @return success 操作是否成功
+     * @dev 批量处理用户操作
+     * @param ops 用户操作数组
+     * @return success 每个操作的执行结果
      */
-    function handleOp(UserOperation calldata userOp) external returns (bool success);
+    function handleOps(UserOperation[] calldata ops) external returns (bool[] memory success);
 
     /**
      * @dev 存款

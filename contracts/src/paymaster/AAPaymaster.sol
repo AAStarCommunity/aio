@@ -220,6 +220,20 @@ contract AAPaymaster is IPaymaster, Ownable, ReentrancyGuard, Pausable {
     receive() external payable {
         this.deposit();
     }
+
+    /**
+     * @dev 暂停合约
+     */
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /**
+     * @dev 恢复合约
+     */
+    function unpause() external onlyOwner {
+        _unpause();
+    }
 }
 
 enum PaymentType {
