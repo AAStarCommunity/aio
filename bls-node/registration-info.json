@@ -1,8 +1,8 @@
 {
   "nodeId": "node1",
-  "nodeUrl": "http://localhost:3000",
-  "blsPublicKey": "0xb708fd73d97a08a7a1e6874603b5149e07b31d6db58cfd89a8a70c5836f5bf2674b96c2358925057b183a3fdd0ce9aa0",
-  "transactionHash": "0xb95ef1e2ca4cde6d623480c814d110f489028cb3609e648e17549d376481d441",
-  "blockNumber": 4,
-  "timestamp": "2025-06-10T13:35:37.959Z"
+  "nodeUrl": "http://localhost:3001",
+  "blsPublicKey": "0x97d28cbd64a0d60bf4d1180726a03fbceba491af04e692c95955eff113ca59e26ab5b2c0e6ac8c885987f96e7828266f",
+  "transactionHash": "0x3e3047eba7d5413203b2d66c2f7bed6ed0a4211ce14548eef630b57501a3edce",
+  "blockNumber": 2,
+  "timestamp": "2025-06-17T12:36:41.930Z"
 }
