@@ -7,6 +7,8 @@ import { createPasskeyCredential } from '@/lib/passkey';
 import { generateId } from '@/lib/storage';
 import { UserPlus, Mail, User as UserIcon } from 'lucide-react';
 import { startRegistration } from '@simplewebauthn/browser';
+import { api } from '../lib/api';
+import type { RegistrationResponseJSON } from '@simplewebauthn/types';
 
 interface RegisterFormProps {
   onRegister: (user: User) => void;
@@ -14,90 +16,48 @@ interface RegisterFormProps {
 }
 
 export default function RegisterForm({ onRegister, onSwitchToLogin }: RegisterFormProps) {
-  const [formData, setFormData] = useState<RegisterFormData>({
-    email: '',
-    name: '',
-  });
+  const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    setError('');
-  };
+  const [success, setSuccess] = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setSuccess(false);
 
     try {
       // 1. 获取注册选项
-      const optionsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/register/start`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: formData.email })
-      });
-
-      if (!optionsRes.ok) {
-        throw new Error('Failed to get registration options');
-      }
-
-      const options = await optionsRes.json();
+      const { options } = await api.auth.registerStart(email);
 
       // 2. 创建凭证
-      const credential = await startRegistration(options);
+      let credential: RegistrationResponseJSON;
+      try {
+        credential = await startRegistration(options);
+      } catch (err) {
+        throw new Error('创建 Passkey 失败，请确保您的设备支持生物识别或PIN码解锁');
+      }
 
       // 3. 验证注册
-      const verificationRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/register/complete`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: formData.email,
-          response: credential
-        })
+      // TODO: 这里需要集成钱包创建逻辑，生成 aaAddress
+      const aaAddress = '0x' + Array(40).fill('0').join(''); // 临时占位
+      
+      const { user } = await api.auth.registerComplete({
+        email,
+        response: credential,
+        challenge: options.challenge,
+        aaAddress
       });
 
-      if (!verificationRes.ok) {
-        throw new Error('Failed to verify registration');
-      }
-
-      const { user } = await verificationRes.json();
+      setSuccess(true);
       console.log('Registration successful:', user);
       
-      // 检查邮箱是否已注册
-      const existingUser = userStorage.getUserByEmail(formData.email);
-      if (existingUser) {
-        setError('该邮箱已被注册');
-        return;
-      }
-
-      // 生成钱包地址（这里使用演示地址，实际项目中应该通过 Web3 库生成）
-      const walletAddress = `0x${Array.from(crypto.getRandomValues(new Uint8Array(20)))
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('')}`;
-
-      // 创建新用户
-      const newUser: User = {
-        id: generateId(),
-        email: formData.email,
-        name: formData.name,
-        walletAddress,
-        hasPasskey: true
-      };
-
-      // 保存用户信息
-      userStorage.saveUser(newUser);
+      // TODO: 处理注册成功后的逻辑，比如跳转到主页或显示成功消息
       
-      setSuccess('注册成功！');
-      setTimeout(() => {
-        onRegister(newUser);
-      }, 1500);
     } catch (err) {
       console.error('Registration error:', err);
-      setError(err instanceof Error ? err.message : 'Registration failed');
+      setError(err instanceof Error ? err.message : '注册失败，请重试');
     } finally {
       setLoading(false);
     }
@@ -110,24 +70,37 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }: RegisterFo
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             注册账户
           </h2>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            使用 Passkey 注册新账户
+          </p>
         </div>
+        
+        {error && (
+          <div className="rounded-md bg-red-50 p-4">
+            <div className="flex">
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">
+                  {error}
+                </h3>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {success && (
+          <div className="rounded-md bg-green-50 p-4">
+            <div className="flex">
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-green-800">
+                  注册成功！
+                </h3>
+              </div>
+            </div>
+          </div>
+        )}
+
         <form className="mt-8 space-y-6" onSubmit={handleRegister}>
           <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <label htmlFor="name" className="sr-only">
-                姓名
-              </label>
-              <input
-                id="name"
-                name="name"
-                type="text"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="姓名"
-                value={formData.name}
-                onChange={handleInputChange}
-              />
-            </div>
             <div>
               <label htmlFor="email" className="sr-only">
                 邮箱地址
@@ -139,17 +112,12 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }: RegisterFo
                 required
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
                 placeholder="邮箱地址"
-                value={formData.email}
-                onChange={handleInputChange}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
               />
             </div>
           </div>
-
-          {error && (
-            <div className="text-red-500 text-sm text-center">
-              {error}
-            </div>
-          )}
 
           <div>
             <button
@@ -157,11 +125,19 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }: RegisterFo
               disabled={loading}
               className={`group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white ${
                 loading
-                  ? 'bg-indigo-400'
+                  ? 'bg-indigo-400 cursor-not-allowed'
                   : 'bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500'
               }`}
             >
-              {loading ? '注册中...' : '注册'}
+              {loading ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  注册中...
+                </>
+              ) : '使用 Passkey 注册'}
             </button>
           </div>
         </form>
