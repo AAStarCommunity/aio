@@ -37,14 +37,14 @@ export default function TransferHistory({ transfers, user }: TransferHistoryProp
   };
 
   const getTransferType = (transfer: Transfer) => {
-    return transfer.fromUserId === user.id ? 'outgoing' : 'incoming';
+    return transfer.fromAddress.toLowerCase() === user.walletAddress.toLowerCase() ? 'outgoing' : 'incoming';
   };
 
   const getTransferDescription = (transfer: Transfer) => {
-    if (transfer.fromUserId === user.id) {
-      return `转账给 ${transfer.toUserId}`;
+    if (transfer.fromAddress.toLowerCase() === user.walletAddress.toLowerCase()) {
+      return `转账给 ${transfer.toAddress}`;
     } else {
-      return `收到来自 ${transfer.fromUserId} 的转账`;
+      return `收到来自 ${transfer.fromAddress} 的转账`;
     }
   };
 
@@ -95,7 +95,7 @@ export default function TransferHistory({ transfers, user }: TransferHistoryProp
                 <div className={`text-lg font-semibold ${
                   isOutgoing ? 'text-red-600' : 'text-green-600'
                 }`}>
-                  {isOutgoing ? '-' : '+'}{formatCurrency(transfer.amount, transfer.currency)}
+                  {isOutgoing ? '-' : '+'}{formatCurrency(transfer.amount)}
                 </div>
                 <div className="flex items-center space-x-1 mt-1">
                   {getStatusIcon(transfer.status)}

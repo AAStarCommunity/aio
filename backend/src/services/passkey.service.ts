@@ -18,9 +18,12 @@ import { IUser } from '../models/user.model';
 import { AppError } from '../middlewares/error.middleware';
 import logger from '../utils/logger';
 
-const rpName = 'AAStar';
+const rpName = 'FrontDoor Demo';
 const rpID = 'localhost';
-const origin = `http://${rpID}:8080`;
+const expectedOrigins = [
+  'http://localhost:8080',
+  'http://localhost:3000'
+];
 
 @Injectable()
 export class PasskeyService {
@@ -54,7 +57,15 @@ export class PasskeyService {
         }
       };
 
+      logger.info('Generating registration options with config:', {
+        rpName,
+        rpID,
+        expectedOrigins,
+        userEmail: email
+      });
+
       const registrationOptions = await generateRegistrationOptions(options);
+      logger.info('Registration options generated successfully');
       return registrationOptions;
     } catch (error) {
       logger.error('Failed to generate registration options:', error);
@@ -69,11 +80,21 @@ export class PasskeyService {
     email: string
   ) {
     try {
+      logger.info('Verifying registration response for email:', email);
+      logger.info('Expected challenge:', challenge);
+      logger.info('Expected origins:', expectedOrigins);
+      logger.info('Expected RP ID:', rpID);
+      
       const verification = await verifyRegistrationResponse({
         response,
         expectedChallenge: challenge,
-        expectedOrigin: origin,
+        expectedOrigin: expectedOrigins,
         expectedRPID: rpID,
+      });
+
+      logger.info('Registration verification result:', {
+        verified: verification.verified,
+        hasRegistrationInfo: !!verification.registrationInfo
       });
 
       if (!verification.verified || !verification.registrationInfo) {
@@ -128,7 +149,7 @@ export class PasskeyService {
       const verification = await verifyAuthenticationResponse({
         response,
         expectedChallenge: challenge,
-        expectedOrigin: origin,
+        expectedOrigin: expectedOrigins,
         expectedRPID: rpID,
         requireUserVerification: true,
         credential: {

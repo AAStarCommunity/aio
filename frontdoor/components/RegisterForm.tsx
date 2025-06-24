@@ -3,10 +3,11 @@
 import { useState } from 'react';
 import { startRegistration } from '@simplewebauthn/browser';
 import { api } from '../lib/api';
+import { User } from '../lib/types';
 import type { RegistrationResponseJSON } from '@simplewebauthn/types';
 
 interface RegisterFormProps {
-  onRegister?: (user: { email: string; aaAddress: string }) => void;
+  onRegister?: (user: User) => void;
   onSwitchToLogin?: () => void;
 }
 
@@ -23,21 +24,40 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }: RegisterFo
     setSuccess(false);
 
     try {
+      console.log('Starting registration for email:', email);
+      
       // 1. 获取注册选项
       const { options } = await api.auth.registerStart(email);
+      console.log('Registration options received:', options);
 
       // 2. 创建凭证
       let credential: RegistrationResponseJSON;
       try {
+        console.log('Starting WebAuthn registration...');
         credential = await startRegistration({
           optionsJSON: options,
           useAutoRegister: true
         });
+        console.log('WebAuthn registration successful:', credential);
       } catch (err) {
+        console.error('WebAuthn registration error:', err);
+        // 更详细的错误信息
+        if (err instanceof Error) {
+          if (err.name === 'NotAllowedError') {
+            throw new Error('用户取消了 Passkey 创建或设备不支持');
+          } else if (err.name === 'InvalidStateError') {
+            throw new Error('该邮箱已经注册过 Passkey');
+          } else if (err.name === 'NotSupportedError') {
+            throw new Error('设备不支持 Passkey 功能');
+          } else {
+            throw new Error(`创建 Passkey 失败: ${err.message}`);
+          }
+        }
         throw new Error('创建 Passkey 失败，请确保您的设备支持生物识别或PIN码解锁');
       }
 
       // 3. 验证注册
+      console.log('Completing registration...');
       // TODO: 这里需要集成钱包创建逻辑，生成 aaAddress
       const aaAddress = '0x' + Array(40).fill('0').join(''); // 临时占位
       
@@ -52,7 +72,16 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }: RegisterFo
       console.log('Registration successful:', user);
       
       if (onRegister) {
-        onRegister(user);
+        // 转换 API 返回的用户数据为前端需要的 User 类型
+        const frontendUser: User = {
+          id: user.credentialId, // 使用 credentialId 作为用户 ID
+          email: user.email,
+          name: email.split('@')[0], // 使用邮箱前缀作为默认名称
+          walletAddress: user.aaAddress,
+          hasPasskey: true,
+          createdAt: new Date().toISOString()
+        };
+        onRegister(frontendUser);
       }
       
     } catch (err) {

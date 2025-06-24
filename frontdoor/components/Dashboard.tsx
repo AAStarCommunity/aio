@@ -40,7 +40,13 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
   };
 
   const handleAddContact = (contact: Contact) => {
-    contactStorage.addContact(user.id, contact);
+    const newContact: Contact = {
+      ...contact,
+      id: Date.now().toString(),
+      userId: user.id,
+      createdAt: new Date().toISOString()
+    };
+    contactStorage.saveContact(newContact);
     loadContacts();
     setShowAddContact(false);
   };
@@ -51,7 +57,13 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
   };
 
   const handleTransfer = (transfer: Transfer) => {
-    transferStorage.addTransfer(transfer);
+    const newTransfer: Transfer = {
+      ...transfer,
+      id: Date.now().toString(),
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    transferStorage.saveTransfer(newTransfer);
     loadTransfers();
     setShowTransfer(false);
     setSelectedContact(null);
@@ -173,6 +185,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
       {/* 模态框 */}
       {showAddContact && (
         <AddContactModal
+          userId={user.id}
           onAdd={handleAddContact}
           onClose={() => setShowAddContact(false)}
         />
