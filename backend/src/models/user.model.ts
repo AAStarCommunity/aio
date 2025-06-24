@@ -1,6 +1,6 @@
-import mongoose from 'mongoose';
+import { Schema, Document, model } from 'mongoose';
 
-export interface IUser {
+export interface IUser extends Document {
   email: string;
   credentialId: string;
   credentialPublicKey: Buffer;
@@ -8,7 +8,7 @@ export interface IUser {
   aaAddress: string;
 }
 
-const userSchema = new mongoose.Schema<IUser>({
+const userSchema = new Schema<IUser>({
   email: {
     type: String,
     required: true,
@@ -17,7 +17,9 @@ const userSchema = new mongoose.Schema<IUser>({
   credentialId: {
     type: String,
     required: true,
-    unique: true
+    unique: true,
+    get: (v: string) => Buffer.from(v, 'base64url').toString(),
+    set: (v: string) => Buffer.from(v).toString('base64url')
   },
   credentialPublicKey: {
     type: Buffer,
@@ -34,7 +36,9 @@ const userSchema = new mongoose.Schema<IUser>({
     unique: true
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  collection: 'users'
 });
 
-export const User = mongoose.model<IUser>('User', userSchema); 
+export const UserSchema = userSchema;
+export const User = model<IUser>('User', userSchema); 

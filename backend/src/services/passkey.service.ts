@@ -1,3 +1,6 @@
+import { Injectable } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
@@ -11,39 +14,46 @@ import type {
   AuthenticationResponseJSON,
   AuthenticatorTransportFuture
 } from '@simplewebauthn/types';
-import { User } from '../models/user.model';
+import { IUser } from '../models/user.model';
 import { AppError } from '../middlewares/error.middleware';
 import logger from '../utils/logger';
 
 const rpName = 'AAStar';
 const rpID = 'localhost';
-const origin = `http://${rpID}:3000`;
+const origin = `http://${rpID}:8080`;
 
+@Injectable()
 export class PasskeyService {
+  constructor(
+    @InjectModel('User') private readonly userModel: Model<IUser>
+  ) {}
+
   // 生成注册选项
   async generateRegistrationOptions(email: string): Promise<PublicKeyCredentialCreationOptionsJSON> {
-    // 检查邮箱是否已注册
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      throw new AppError(400, '该邮箱已注册');
-    }
-
-    const options = {
-      rpName,
-      rpID,
-      userID: Buffer.from(email),
-      userName: email,
-      userDisplayName: email,
-      timeout: 60000,
-      attestationType: 'none' as const,
-      authenticatorSelection: {
-        authenticatorAttachment: 'platform' as const,
-        residentKey: 'required' as const,
-        userVerification: 'preferred' as const
-      }
-    };
-
+    logger.info(`Checking if email ${email} exists in database...`);
     try {
+      // 检查邮箱是否已注册
+      const existingUser = await this.userModel.findOne({ email });
+      logger.info('Database query result:', existingUser);
+      if (existingUser) {
+        throw new AppError(400, '该邮箱已注册');
+      }
+
+      const options = {
+        rpName,
+        rpID,
+        userID: Buffer.from(email),
+        userName: email,
+        userDisplayName: email,
+        timeout: 60000,
+        attestationType: 'none' as const,
+        authenticatorSelection: {
+          authenticatorAttachment: 'platform' as const,
+          residentKey: 'required' as const,
+          userVerification: 'preferred' as const
+        }
+      };
+
       const registrationOptions = await generateRegistrationOptions(options);
       return registrationOptions;
     } catch (error) {

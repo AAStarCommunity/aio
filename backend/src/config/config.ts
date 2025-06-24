@@ -28,7 +28,7 @@ interface Config {
 const config: Config = {
   port: parseInt(process.env.PORT || '3000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
-  mongoUri: process.env.MONGO_URI || 'mongodb://localhost:27017/aastar',
+  mongoUri: process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/aastar?directConnection=true',
   logLevel: process.env.LOG_LEVEL || 'info',
   ethereum: {
     rpcUrl: process.env.ETH_RPC_URL || 'https://sepolia.infura.io/v3/',
@@ -49,7 +49,7 @@ const config: Config = {
 export default () => ({
   port: parseInt(process.env.PORT || '3000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
-  mongoUri: process.env.MONGO_URI || 'mongodb://localhost:27017/aastar',
+  mongoUri: process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/aastar?directConnection=true',
   logLevel: process.env.LOG_LEVEL || 'info',
   ethereum: {
     rpcUrl: process.env.ETH_RPC_URL || 'https://sepolia.infura.io/v3/',

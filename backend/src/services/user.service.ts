@@ -1,4 +1,7 @@
-import { User } from '../models/user.model';
+import { Injectable } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { IUser } from '../models/user.model';
 import { PasskeyService } from './passkey.service';
 import { AppError } from '../middlewares/error.middleware';
 import logger from '../utils/logger';
@@ -7,12 +10,12 @@ import type {
   AuthenticationResponseJSON
 } from '@simplewebauthn/types';
 
+@Injectable()
 export class UserService {
-  private passkeyService: PasskeyService;
-
-  constructor() {
-    this.passkeyService = new PasskeyService();
-  }
+  constructor(
+    @InjectModel('User') private readonly userModel: Model<IUser>,
+    private readonly passkeyService: PasskeyService
+  ) {}
 
   // 开始注册流程
   async startRegistration(email: string) {
@@ -46,7 +49,7 @@ export class UserService {
       const { credentialID, credentialPublicKey, counter } = verification.registrationInfo;
 
       // 创建新用户
-      const user = new User({
+      const user = new this.userModel({
         email,
         credentialId: Buffer.from(credentialID).toString('base64url'),
         credentialPublicKey: Buffer.from(credentialPublicKey),
@@ -65,7 +68,7 @@ export class UserService {
   // 开始登录流程
   async startLogin(email: string) {
     try {
-      const user = await User.findOne({ email });
+      const user = await this.userModel.findOne({ email });
       if (!user) {
         throw new AppError(404, '用户不存在');
       }
@@ -85,7 +88,7 @@ export class UserService {
     challenge: string
   ) {
     try {
-      const user = await User.findOne({ email });
+      const user = await this.userModel.findOne({ email });
       if (!user) {
         throw new AppError(404, '用户不存在');
       }

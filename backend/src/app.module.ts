@@ -9,6 +9,7 @@ import { PimlicoPaymasterService } from './services/pimlico.paymaster.service';
 import { AuthController } from './controllers/auth.controller';
 import { UserService } from './services/user.service';
 import { PasskeyService } from './services/passkey.service';
+import { UserSchema } from './models/user.model';
 
 @Module({
   imports: [
@@ -18,13 +19,24 @@ import { PasskeyService } from './services/passkey.service';
     }),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        uri: configService.get<string>('mongoUri'),
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-      }),
+      useFactory: async (configService: ConfigService) => {
+        const mongoUri = configService.get<string>('mongoUri');
+        console.log('尝试连接到 MongoDB:', mongoUri);
+        
+        const config = {
+          uri: mongoUri,
+          serverSelectionTimeoutMS: 30000,
+          socketTimeoutMS: 45000,
+          connectTimeoutMS: 30000,
+          maxPoolSize: 10,
+          heartbeatFrequencyMS: 2000,
+        };
+        console.log('MongoDB 详细配置:', JSON.stringify(config, null, 2));
+        return config;
+      },
       inject: [ConfigService],
     }),
+    MongooseModule.forFeature([{ name: 'User', schema: UserSchema }]),
   ],
   controllers: [UserOperationController, AuthController],
   providers: [
