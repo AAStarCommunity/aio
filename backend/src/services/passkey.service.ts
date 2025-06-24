@@ -35,27 +35,27 @@ export class PasskeyService {
   async generateRegistrationOptions(email: string): Promise<PublicKeyCredentialCreationOptionsJSON> {
     logger.info(`Checking if email ${email} exists in database...`);
     try {
-      // 检查邮箱是否已注册
+    // 检查邮箱是否已注册
       const existingUser = await this.userModel.findOne({ email });
       logger.info('Database query result:', existingUser);
-      if (existingUser) {
-        throw new AppError(400, '该邮箱已注册');
-      }
+    if (existingUser) {
+      throw new AppError(400, '该邮箱已注册');
+    }
 
-      const options = {
-        rpName,
-        rpID,
-        userID: Buffer.from(email),
-        userName: email,
-        userDisplayName: email,
-        timeout: 60000,
-        attestationType: 'none' as const,
-        authenticatorSelection: {
-          authenticatorAttachment: 'platform' as const,
-          residentKey: 'required' as const,
-          userVerification: 'preferred' as const
-        }
-      };
+    const options = {
+      rpName,
+      rpID,
+      userID: Buffer.from(email),
+      userName: email,
+      userDisplayName: email,
+      timeout: 60000,
+      attestationType: 'none' as const,
+      authenticatorSelection: {
+        authenticatorAttachment: 'platform' as const,
+        residentKey: 'required' as const,
+        userVerification: 'preferred' as const
+      }
+    };
 
       logger.info('Generating registration options with config:', {
         rpName,

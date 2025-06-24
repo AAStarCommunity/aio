@@ -34,26 +34,47 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }: RegisterFo
       let credential: RegistrationResponseJSON;
       try {
         console.log('Starting WebAuthn registration...');
+        
+        // 确保选项格式正确
+        const registrationOptions = {
+          ...options,
+          // 确保 challenge 是字符串格式
+          challenge: options.challenge,
+          // 确保 user.id 是字符串格式
+          user: {
+            ...options.user,
+            id: options.user.id
+          },
+          // 确保 excludeCredentials 格式正确
+          excludeCredentials: options.excludeCredentials || []
+        };
+
+        console.log('Processed registration options:', registrationOptions);
+
         credential = await startRegistration({
-          optionsJSON: options,
-          useAutoRegister: true
+          optionsJSON: registrationOptions
         });
         console.log('WebAuthn registration successful:', credential);
-      } catch (err) {
+      } catch (err: any) {
         console.error('WebAuthn registration error:', err);
+        console.error('Error name:', err?.name);
+        console.error('Error message:', err?.message);
+        console.error('Error stack:', err?.stack);
+        
         // 更详细的错误信息
-        if (err instanceof Error) {
-          if (err.name === 'NotAllowedError') {
-            throw new Error('用户取消了 Passkey 创建或设备不支持');
-          } else if (err.name === 'InvalidStateError') {
-            throw new Error('该邮箱已经注册过 Passkey');
-          } else if (err.name === 'NotSupportedError') {
-            throw new Error('设备不支持 Passkey 功能');
-          } else {
-            throw new Error(`创建 Passkey 失败: ${err.message}`);
-          }
+        if (err?.name === 'NotAllowedError') {
+          throw new Error('用户取消了 Passkey 创建或操作超时');
+        } else if (err?.name === 'InvalidStateError') {
+          throw new Error('该邮箱已经注册过 Passkey，请尝试登录');
+        } else if (err?.name === 'NotSupportedError') {
+          throw new Error('您的设备或浏览器不支持 Passkey 功能');
+        } else if (err?.name === 'SecurityError') {
+          throw new Error('安全错误：请确保在安全的 HTTPS 环境下使用');
+        } else if (err?.message?.includes('RESULT_CODE_KILLED_BAD_MESSAGE')) {
+          throw new Error('Passkey 创建失败：数据格式错误，请重试');
+        } else {
+          throw new Error(`创建 Passkey 失败: ${err?.message || '未知错误'}`);
         }
-        throw new Error('创建 Passkey 失败，请确保您的设备支持生物识别或PIN码解锁');
       }
 
       // 3. 验证注册
