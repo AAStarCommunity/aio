@@ -1,18 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { User, RegisterFormData } from '@/lib/types';
-import { userStorage } from '@/lib/storage';
-import { createPasskeyCredential } from '@/lib/passkey';
-import { generateId } from '@/lib/storage';
-import { UserPlus, Mail, User as UserIcon } from 'lucide-react';
 import { startRegistration } from '@simplewebauthn/browser';
 import { api } from '../lib/api';
 import type { RegistrationResponseJSON } from '@simplewebauthn/types';
 
 interface RegisterFormProps {
-  onRegister: (user: User) => void;
-  onSwitchToLogin: () => void;
+  onRegister?: (user: { email: string; aaAddress: string }) => void;
+  onSwitchToLogin?: () => void;
 }
 
 export default function RegisterForm({ onRegister, onSwitchToLogin }: RegisterFormProps) {
@@ -34,7 +29,10 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }: RegisterFo
       // 2. 创建凭证
       let credential: RegistrationResponseJSON;
       try {
-        credential = await startRegistration(options);
+        credential = await startRegistration({
+          optionsJSON: options,
+          useAutoRegister: true
+        });
       } catch (err) {
         throw new Error('创建 Passkey 失败，请确保您的设备支持生物识别或PIN码解锁');
       }
@@ -53,7 +51,9 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }: RegisterFo
       setSuccess(true);
       console.log('Registration successful:', user);
       
-      // TODO: 处理注册成功后的逻辑，比如跳转到主页或显示成功消息
+      if (onRegister) {
+        onRegister(user);
+      }
       
     } catch (err) {
       console.error('Registration error:', err);
@@ -140,19 +140,19 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }: RegisterFo
               ) : '使用 Passkey 注册'}
             </button>
           </div>
-        </form>
 
-        <div className="mt-6 text-center">
-          <p className="text-sm text-gray-600">
-            已有账号？{' '}
-            <button
-              onClick={onSwitchToLogin}
-              className="text-primary-600 hover:text-primary-700 font-medium"
-            >
-              立即登录
-            </button>
-          </p>
-        </div>
+          {onSwitchToLogin && (
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={onSwitchToLogin}
+                className="text-sm text-indigo-600 hover:text-indigo-500"
+              >
+                已有账号？点击登录
+              </button>
+            </div>
+          )}
+        </form>
       </div>
     </div>
   );

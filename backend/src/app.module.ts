@@ -6,6 +6,9 @@ import { UserOperationController } from './controllers/UserOperationController';
 import { UserOperationService } from './services/UserOperationService';
 import { BundlerService } from './services/BundlerService';
 import { PimlicoPaymasterService } from './services/pimlico.paymaster.service';
+import { AuthController } from './controllers/auth.controller';
+import { UserService } from './services/user.service';
+import { PasskeyService } from './services/passkey.service';
 
 @Module({
   imports: [
@@ -23,11 +26,13 @@ import { PimlicoPaymasterService } from './services/pimlico.paymaster.service';
       inject: [ConfigService],
     }),
   ],
-  controllers: [UserOperationController],
+  controllers: [UserOperationController, AuthController],
   providers: [
     UserOperationService,
     BundlerService,
     PimlicoPaymasterService,
+    UserService,
+    PasskeyService,
   ],
 })
 export class AppModule {} 
