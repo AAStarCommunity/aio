@@ -79,8 +79,9 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }: RegisterFo
 
       // 3. 验证注册
       console.log('Completing registration...');
-      // TODO: 这里需要集成钱包创建逻辑，生成 aaAddress
-      const aaAddress = '0x' + Array(40).fill('0').join(''); // 临时占位
+      // 生成一个随机的钱包地址
+      const randomHex = () => Math.floor(Math.random() * 16).toString(16);
+      const aaAddress = '0x' + Array(40).fill(0).map(() => randomHex()).join('');
       
       const { user } = await api.auth.registerComplete({
         email,

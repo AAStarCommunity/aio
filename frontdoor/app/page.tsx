@@ -2,9 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { User } from '@/lib/types';
-import { userStorage } from '@/lib/storage';
 import { isPasskeyAvailable } from '@/lib/passkey';
-import { initializeDemoData, getDemoUsers } from '@/lib/demo-data';
 import LoginForm from '@/components/LoginForm';
 import RegisterForm from '@/components/RegisterForm';
 import Dashboard from '@/components/Dashboard';
@@ -17,15 +15,6 @@ export default function HomePage() {
   useEffect(() => {
     // 检查 Passkey 支持
     isPasskeyAvailable().then(setPasskeyAvailable);
-
-    // 初始化演示数据
-    initializeDemoData();
-
-    // 获取当前用户
-    const user = userStorage.getCurrentUser();
-    if (user) {
-      setCurrentUser(user);
-    }
   }, []);
 
   const handleLogin = (user: User) => {
@@ -37,7 +26,6 @@ export default function HomePage() {
   };
 
   const handleLogout = () => {
-    userStorage.clearCurrentUser();
     setCurrentUser(null);
   };
 
@@ -60,8 +48,6 @@ export default function HomePage() {
   if (currentUser) {
     return <Dashboard user={currentUser} onLogout={handleLogout} />;
   }
-
-  const demoUsers = getDemoUsers();
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
@@ -91,19 +77,6 @@ export default function HomePage() {
               onSwitchToRegister={() => setShowRegister(true)}
             />
           )}
-        </div>
-
-        {/* 演示账号信息 */}
-        <div className="mt-6 card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-3">演示账号</h3>
-          <div className="space-y-2">
-            {demoUsers.map((user, index) => (
-              <div key={index} className="text-sm text-gray-600">
-                <p><strong>邮箱:</strong> {user.email}</p>
-                <p><strong>钱包地址:</strong> {user.walletAddress}</p>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     </div>

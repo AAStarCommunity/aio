@@ -146,6 +146,32 @@ export class PasskeyService {
     counter: number
   ) {
     try {
+      logger.info('开始验证认证响应');
+      logger.info(`credentialPublicKey 类型: ${typeof credentialPublicKey}`);
+      logger.info(`credentialPublicKey 构造函数: ${credentialPublicKey.constructor.name}`);
+      
+      // 处理 MongoDB Binary 对象或 Buffer
+      let publicKeyBuffer: Buffer;
+      if (credentialPublicKey.constructor.name === 'Binary') {
+        // 如果是 MongoDB Binary 对象，转换为 Buffer
+        publicKeyBuffer = Buffer.from(credentialPublicKey.buffer);
+        logger.info('从 MongoDB Binary 对象转换为 Buffer');
+      } else if (Buffer.isBuffer(credentialPublicKey)) {
+        // 如果已经是 Buffer，直接使用
+        publicKeyBuffer = credentialPublicKey;
+        logger.info('使用现有的 Buffer');
+      } else {
+        // 其他情况，尝试转换
+        publicKeyBuffer = Buffer.from(credentialPublicKey);
+        logger.info('从其他类型转换为 Buffer');
+      }
+      
+      logger.info(`转换后的 Buffer 长度: ${publicKeyBuffer.length}`);
+      
+      // 确保是 Uint8Array 格式
+      const publicKeyUint8Array = new Uint8Array(publicKeyBuffer);
+      logger.info(`Uint8Array 长度: ${publicKeyUint8Array.length}`);
+      
       const verification = await verifyAuthenticationResponse({
         response,
         expectedChallenge: challenge,
@@ -154,7 +180,7 @@ export class PasskeyService {
         requireUserVerification: true,
         credential: {
           id: response.id,
-          publicKey: credentialPublicKey,
+          publicKey: publicKeyUint8Array,
           counter
         }
       });
@@ -163,6 +189,7 @@ export class PasskeyService {
         throw new Error('Invalid authentication response');
       }
 
+      logger.info('认证验证成功');
       return verification;
     } catch (error) {
       logger.error('Authentication verification failed:', error);

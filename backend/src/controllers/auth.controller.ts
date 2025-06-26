@@ -49,9 +49,9 @@ export class AuthController {
 
   @Post('login/start')
   async startLogin(@Body() body: { email: string }) {
-    this.logger.log(`开始登录流程，邮箱: ${body.email}`);
+    this.logger.log(`开始登录流程，邮箱: ${body.email || '(空)'}`);
     try {
-      const options = await this.userService.startLogin(body.email);
+      const options = await this.userService.startLogin(body.email || '');
       this.logger.log(`成功生成登录选项`);
       return { options };
     } catch (error) {
@@ -64,15 +64,19 @@ export class AuthController {
   async completeLogin(
     @Body()
     body: {
-      email: string;
+      credentialId: string;
       response: any;
       challenge: string;
     },
   ) {
-    this.logger.log(`完成登录流程，邮箱: ${body.email}`);
+    this.logger.log(`完成登录流程，接收到的参数:`);
+    this.logger.log(`- credentialId: ${body.credentialId}`);
+    this.logger.log(`- challenge: ${body.challenge}`);
+    this.logger.log(`- response.id: ${body.response?.id}`);
+    
     try {
       const user = await this.userService.completeLogin(
-        body.email,
+        body.credentialId,
         body.response,
         body.challenge,
       );
