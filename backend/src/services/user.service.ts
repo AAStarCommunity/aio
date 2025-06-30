@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { IUser } from '../models/user.model';
 import { PasskeyService } from './passkey.service';
+import { AAWalletService } from './aa-wallet.service';
 import { AppError } from '../middlewares/error.middleware';
 import logger from '../utils/logger';
 import type {
@@ -14,7 +15,8 @@ import type {
 export class UserService {
   constructor(
     @InjectModel('User') private readonly userModel: Model<IUser>,
-    private readonly passkeyService: PasskeyService
+    private readonly passkeyService: PasskeyService,
+    private readonly aaWalletService: AAWalletService
   ) {}
 
   // 开始注册流程
@@ -32,8 +34,7 @@ export class UserService {
   async completeRegistration(
     email: string,
     response: RegistrationResponseJSON,
-    challenge: string,
-    aaAddress: string
+    challenge: string
   ) {
     try {
       const verification = await this.passkeyService.verifyRegistration(
@@ -48,13 +49,34 @@ export class UserService {
 
       const { credentialID, credentialPublicKey, counter } = verification.registrationInfo;
 
+      // 从 credentialPublicKey 生成 BLS 公钥（这里简化处理，实际应该从 passkey 中提取）
+      // 注意：这是一个简化的实现，实际项目中需要正确处理 passkey 公钥到 BLS 公钥的转换
+      const blsPublicKey = '0x' + Buffer.from(credentialPublicKey).toString('hex').padStart(96, '0').slice(0, 96);
+      
+      // 生成确定性的 owner 地址（使用邮箱哈希）
+      const { ethers } = require('ethers');
+      const ownerAddress = ethers.getAddress('0x' + ethers.keccak256(ethers.toUtf8Bytes(email)).slice(26));
+      
+      // 生成确定性的 salt
+      const salt = this.aaWalletService.generateDeterministicSalt(email, blsPublicKey);
+      
+      // 创建 AA 钱包
+      logger.info(`Creating AA wallet for user: ${email}`);
+      const walletInfo = await this.aaWalletService.createWallet({
+        ownerAddress,
+        blsPublicKey,
+        salt
+      });
+      
+      logger.info(`AA wallet created: ${walletInfo.address}`);
+
       // 创建新用户
       const user = new this.userModel({
         email,
         credentialId: Buffer.from(credentialID).toString('base64url'),
         credentialPublicKey: Buffer.from(credentialPublicKey),
         counter,
-        aaAddress,
+        aaAddress: walletInfo.address,
       });
 
       await user.save();

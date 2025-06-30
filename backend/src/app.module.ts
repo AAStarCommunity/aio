@@ -7,8 +7,10 @@ import { UserOperationService } from './services/UserOperationService';
 import { BundlerService } from './services/BundlerService';
 import { PimlicoPaymasterService } from './services/pimlico.paymaster.service';
 import { AuthController } from './controllers/auth.controller';
+import { WalletController } from './controllers/wallet.controller';
 import { UserService } from './services/user.service';
 import { PasskeyService } from './services/passkey.service';
+import { AAWalletService } from './services/aa-wallet.service';
 import { UserSchema } from './models/user.model';
 
 @Module({
@@ -38,13 +40,14 @@ import { UserSchema } from './models/user.model';
     }),
     MongooseModule.forFeature([{ name: 'User', schema: UserSchema }]),
   ],
-  controllers: [UserOperationController, AuthController],
+  controllers: [UserOperationController, AuthController, WalletController],
   providers: [
     UserOperationService,
     BundlerService,
     PimlicoPaymasterService,
     UserService,
     PasskeyService,
+    AAWalletService,
   ],
 })
 export class AppModule {} 

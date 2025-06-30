@@ -28,7 +28,6 @@ export class AuthController {
       email: string;
       response: RegistrationResponseJSON;
       challenge: string;
-      aaAddress: string;
     },
   ) {
     this.logger.log(`完成注册流程，邮箱: ${body.email}`);
@@ -37,9 +36,8 @@ export class AuthController {
         body.email,
         body.response,
         body.challenge,
-        body.aaAddress,
       );
-      this.logger.log(`注册完成成功`);
+      this.logger.log(`注册完成成功，AA钱包地址: ${user.aaAddress}`);
       return { user };
     } catch (error) {
       this.logger.error(`注册完成失败: ${error.message}`, error.stack);

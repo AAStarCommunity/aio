@@ -12,6 +12,7 @@ interface Config {
   ethereum: {
     rpcUrl: string;
     chainId: number;
+    privateKey: string;
     entryPointAddress: string;
     accountFactoryAddress: string;
     paymasterAddress: string;
@@ -33,6 +34,7 @@ const config: Config = {
   ethereum: {
     rpcUrl: process.env.ETH_RPC_URL || 'https://sepolia.infura.io/v3/',
     chainId: parseInt(process.env.CHAIN_ID || '11155111', 10), // Sepolia测试网
+    privateKey: process.env.ETH_PRIVATE_KEY || '',
     entryPointAddress: process.env.ENTRY_POINT_ADDRESS || '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789',
     accountFactoryAddress: process.env.ACCOUNT_FACTORY_ADDRESS || '0x9406Cc6185a346906296840746125a0E44976454',
     paymasterAddress: process.env.PAYMASTER_ADDRESS || '0xE93ECa6595fe94091DC1af46aaC2A8b5D7990770',
@@ -54,6 +56,7 @@ export default () => ({
   ethereum: {
     rpcUrl: process.env.ETH_RPC_URL || 'https://sepolia.infura.io/v3/',
     chainId: parseInt(process.env.CHAIN_ID || '11155111', 10), // Sepolia测试网
+    privateKey: process.env.ETH_PRIVATE_KEY || '',
     entryPointAddress: process.env.ENTRY_POINT_ADDRESS || '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789',
     accountFactoryAddress: process.env.ACCOUNT_FACTORY_ADDRESS || '0x9406Cc6185a346906296840746125a0E44976454',
     paymasterAddress: process.env.PAYMASTER_ADDRESS || '0xE93ECa6595fe94091DC1af46aaC2A8b5D7990770',
