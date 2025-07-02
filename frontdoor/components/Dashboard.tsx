@@ -186,6 +186,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
       {showAddContact && (
         <AddContactModal
           userId={user.id}
+          currentUser={user}
           onAdd={handleAddContact}
           onClose={() => setShowAddContact(false)}
         />

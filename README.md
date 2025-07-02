@@ -124,3 +124,127 @@ cd contracts && forge test
 ## 📄 许可证
 
 MIT License
+
+## 🆕 联系人管理增强功能
+
+现在支持两种方式添加联系人：
+
+#### 1. 通过钱包地址添加联系人
+- 支持输入有效的以太坊钱包地址 (0x...)
+- 自动验证地址格式
+- 支持直接转账
+
+#### 2. 通过邮箱地址添加联系人 ✨ **新功能**
+- 支持输入已注册用户的邮箱地址
+- 自动验证邮箱格式和注册状态
+- 防止重复添加
+- 暂不支持直接转账（显示相应提示）
+
+## 快速开始
+
+### 前端 (frontdoor)
+```bash
+cd frontdoor
+npm install
+npm run dev
+```
+访问: http://localhost:8080
+
+### 后端 (backend)
+```bash
+cd backend
+npm install
+npm run start:dev
+```
+API服务: http://localhost:3000
+
+## API 接口
+
+### 新增邮箱验证接口
+
+**检查邮箱是否已注册**
+```
+GET /api/auth/email/check/:email
+```
+
+响应:
+```json
+{
+  "exists": true
+}
+```
+
+## 使用说明
+
+### 添加联系人
+
+1. **选择添加方式**
+   - 点击"钱包地址"按钮通过地址添加
+   - 点击"邮箱地址"按钮通过邮箱添加
+
+2. **填写信息**
+   - 输入联系人备注名（必填）
+   - 根据选择的方式输入钱包地址或邮箱地址
+
+3. **自动验证**
+   - 钱包地址：验证格式是否正确
+   - 邮箱地址：验证格式并检查是否已注册
+   - 检查是否重复添加
+
+4. **完成添加**
+   - 验证通过后联系人将添加到列表
+   - 钱包联系人支持转账功能
+   - 邮箱联系人暂不支持转账
+
+### 联系人列表
+
+- 🔵 钱包图标：通过钱包地址添加的联系人
+- 🟢 邮箱图标：通过邮箱地址添加的联系人
+- ⚠️ 邮箱联系人显示"暂不支持直接转账"提示
+
+## 技术实现
+
+### 前端技术栈
+- Next.js 14
+- TypeScript
+- Tailwind CSS
+- Lucide React Icons
+
+### 后端技术栈
+- NestJS
+- MongoDB
+- TypeScript
+- SimpleWebAuthn
+
+### 主要更新
+
+1. **类型定义更新** (`frontdoor/lib/types.ts`)
+   - Contact 接口支持可选的 `email` 和 `walletAddress` 字段
+   - 新增 `contactType` 字段区分联系人类型
+
+2. **存储逻辑增强** (`frontdoor/lib/storage.ts`)
+   - 新增 `getContactByEmail()` 方法
+   - 新增 `isContactExists()` 方法防止重复添加
+
+3. **UI 组件优化**
+   - AddContactModal：支持选择添加方式
+   - ContactList：显示不同类型联系人的图标和状态
+
+4. **后端 API 扩展**
+   - 新增邮箱验证接口
+   - UserService 添加 `checkEmailExists()` 方法
+
+## 注意事项
+
+- 邮箱联系人功能需要后端服务运行
+- 如果后端服务不可用，会自动降级使用模拟数据
+- 邮箱联系人暂不支持转账功能，后续版本将会支持
+
+## 开发调试
+
+测试邮箱（默认已注册）：
+- demo@example.com
+- alice@example.com
+- bob@example.com
+- charlie@example.com
+- test@example.com

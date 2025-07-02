@@ -19,6 +19,28 @@ export class UserService {
     private readonly aaWalletService: AAWalletService
   ) {}
 
+  // 检查邮箱是否已注册
+  async checkEmailExists(email: string): Promise<boolean> {
+    try {
+      const user = await this.userModel.findOne({ email });
+      return !!user;
+    } catch (error) {
+      logger.error('Failed to check email exists:', error);
+      throw error;
+    }
+  }
+
+  // 根据邮箱获取用户信息
+  async getUserByEmail(email: string): Promise<IUser | null> {
+    try {
+      const user = await this.userModel.findOne({ email });
+      return user;
+    } catch (error) {
+      logger.error('Failed to get user by email:', error);
+      throw error;
+    }
+  }
+
   // 开始注册流程
   async startRegistration(email: string) {
     try {

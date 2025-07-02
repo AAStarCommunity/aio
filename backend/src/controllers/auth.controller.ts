@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Logger } from '@nestjs/common';
+import { Controller, Post, Body, Logger, Get, Param } from '@nestjs/common';
 import { UserService } from '../services/user.service';
 import type { RegistrationResponseJSON } from '@simplewebauthn/types';
 
@@ -7,6 +7,41 @@ export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
   constructor(private readonly userService: UserService) {}
+
+  @Get('email/check/:email')
+  async checkEmailExists(@Param('email') email: string) {
+    this.logger.log(`检查邮箱是否存在: ${email}`);
+    try {
+      const exists = await this.userService.checkEmailExists(email);
+      this.logger.log(`邮箱检查结果: ${exists ? '存在' : '不存在'}`);
+      return { exists };
+    } catch (error) {
+      this.logger.error(`邮箱检查失败: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  @Get('user/email/:email')
+  async getUserByEmail(@Param('email') email: string) {
+    this.logger.log(`根据邮箱获取用户信息: ${email}`);
+    try {
+      const user = await this.userService.getUserByEmail(email);
+      this.logger.log(`用户查询结果: ${user ? '找到' : '未找到'}`);
+      if (!user) {
+        return { user: null };
+      }
+      return { 
+        user: {
+          email: user.email,
+          aaAddress: user.aaAddress,
+          createdAt: (user as any).createdAt || new Date().toISOString()
+        }
+      };
+    } catch (error) {
+      this.logger.error(`用户查询失败: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
 
   @Post('register/start')
   async startRegistration(@Body() body: { email: string }) {
