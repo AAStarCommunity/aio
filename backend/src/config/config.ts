@@ -19,6 +19,7 @@ interface Config {
   };
   bundler: {
     url: string;
+    apiKey: string;
   };
   paymaster: {
     apiKey: string;
@@ -41,6 +42,7 @@ const config: Config = {
   },
   bundler: {
     url: process.env.BUNDLER_URL || 'https://api.pimlico.io/v1/sepolia/rpc',
+    apiKey: process.env.PIMLICO_API_KEY || '',
   },
   paymaster: {
     apiKey: process.env.PIMLICO_API_KEY || '',
@@ -63,6 +65,7 @@ export default () => ({
   },
   bundler: {
     url: process.env.BUNDLER_URL || 'https://api.pimlico.io/v1/sepolia/rpc',
+    apiKey: process.env.PIMLICO_API_KEY || '',
   },
   paymaster: {
     apiKey: process.env.PIMLICO_API_KEY || '',

@@ -30,9 +30,9 @@
     "ethers": "^6.14.3",
     "mongoose": "^8.15.1",
     "morgan": "^1.10.0",
-    "permissionless": "^0.0.21",
+    "permissionless": "^0.1.44",
     "typeorm": "^0.3.0",
-    "viem": "^2.7.12"
+    "viem": "^2.17.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.7",
