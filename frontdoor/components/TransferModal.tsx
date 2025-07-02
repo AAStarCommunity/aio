@@ -49,20 +49,14 @@ export default function TransferModal({ fromUser, toContact, onTransfer, onClose
       
       // 尝试调用真实的转账API
       try {
-        // 1. 创建用户操作
-        const { userOperation } = await api.transfer.createTransfer({
+        // 创建并发送用户操作（一步完成）
+        const { userOperation, userOpHash } = await api.transfer.createTransfer({
           accountAddress: fromUser.walletAddress,
           toAddress: formData.toAddress,
           amount: amountInWei
         });
 
-        setCurrentStep('正在发送转账...');
-
-        // 2. 发送用户操作（在实际应用中，这里需要用户签名）
-        // 注意：这里缺少签名步骤，在生产环境中需要集成钱包签名
-        userOperation.signature = '0x'; // 临时空签名，实际需要BLS签名
-        
-        const { userOpHash } = await api.transfer.sendTransfer(userOperation);
+        setCurrentStep('转账已发送，等待确认...');
 
         // 3. 创建转账记录
         const transfer: Transfer = {

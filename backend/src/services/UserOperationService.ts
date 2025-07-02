@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { ethers } from 'ethers';
 import { createPublicClient, http } from 'viem';
 import { sepolia } from 'viem/chains';
@@ -19,7 +19,6 @@ export interface TransactionRequest {
 
 @Injectable()
 export class UserOperationService {
-  private readonly bundlerService: BundlerService;
   private readonly publicClient;
 
   /**
@@ -30,8 +29,9 @@ export class UserOperationService {
     return (strValue.startsWith('0x') ? strValue : `0x${strValue}`) as `0x${string}`;
   }
 
-  constructor(bundlerService: BundlerService) {
-    this.bundlerService = bundlerService;
+  constructor(
+    @Inject(BundlerService) private readonly bundlerService: BundlerService
+  ) {
     this.publicClient = createPublicClient({
       chain: sepolia,
       transport: http(configuration.ethereum.rpcUrl)
@@ -91,9 +91,9 @@ export class UserOperationService {
       
       // 估算gas费用
       const gasEstimation = await this.bundlerService.estimateUserOperationGas(userOp);
-      userOp.callGasLimit = gasEstimation.callGasLimit;
-      userOp.verificationGasLimit = gasEstimation.verificationGasLimit;
-      userOp.preVerificationGas = gasEstimation.preVerificationGas;
+      userOp.callGasLimit = this.ensureHexPrefix(gasEstimation.callGasLimit);
+      userOp.verificationGasLimit = this.ensureHexPrefix(gasEstimation.verificationGasLimit);
+      userOp.preVerificationGas = this.ensureHexPrefix(gasEstimation.preVerificationGas);
       
       logger.info(`User operation created: ${JSON.stringify(userOp)}`);
       return userOp;
