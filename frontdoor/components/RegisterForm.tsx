@@ -60,7 +60,7 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }: RegisterFo
         console.error('Error name:', err?.name);
         console.error('Error message:', err?.message);
         console.error('Error stack:', err?.stack);
-        
+      
         // 更详细的错误信息
         if (err?.name === 'NotAllowedError') {
           throw new Error('用户取消了 Passkey 创建或操作超时');
@@ -113,7 +113,7 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }: RegisterFo
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
-        <div>
+    <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             注册账户
           </h2>
@@ -121,20 +121,20 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }: RegisterFo
             使用 Passkey 注册新账户
           </p>
         </div>
-        
-        {error && (
+      
+      {error && (
           <div className="rounded-md bg-red-50 p-4">
             <div className="flex">
               <div className="ml-3">
                 <h3 className="text-sm font-medium text-red-800">
-                  {error}
+          {error}
                 </h3>
               </div>
             </div>
-          </div>
-        )}
+        </div>
+      )}
 
-        {success && (
+      {success && (
           <div className="rounded-md bg-green-50 p-4">
             <div className="flex">
               <div className="ml-3">
@@ -143,40 +143,40 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }: RegisterFo
                 </h3>
               </div>
             </div>
-          </div>
-        )}
+        </div>
+      )}
 
         <form className="mt-8 space-y-6" onSubmit={handleRegister}>
           <div className="rounded-md shadow-sm -space-y-px">
-            <div>
+        <div>
               <label htmlFor="email" className="sr-only">
                 邮箱地址
-              </label>
-              <input
+          </label>
+            <input
                 id="email"
                 name="email"
                 type="email"
-                required
+              required
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
                 placeholder="邮箱地址"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={loading}
-              />
-            </div>
+            />
           </div>
+        </div>
 
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
+        <div>
+        <button
+          type="submit"
+          disabled={loading}
               className={`group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white ${
                 loading
                   ? 'bg-indigo-400 cursor-not-allowed'
                   : 'bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500'
               }`}
-            >
-              {loading ? (
+        >
+          {loading ? (
                 <>
                   <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -185,18 +185,18 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }: RegisterFo
                   注册中...
                 </>
               ) : '使用 Passkey 注册'}
-            </button>
+        </button>
           </div>
 
           {onSwitchToLogin && (
             <div className="text-center">
-              <button
+          <button
                 type="button"
-                onClick={onSwitchToLogin}
+            onClick={onSwitchToLogin}
                 className="text-sm text-indigo-600 hover:text-indigo-500"
-              >
+          >
                 已有账号？点击登录
-              </button>
+          </button>
             </div>
           )}
         </form>

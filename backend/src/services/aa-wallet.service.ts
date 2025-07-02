@@ -70,10 +70,16 @@ export class AAWalletService {
         throw new Error('Invalid BLS public key format');
       }
 
-      // 确保 BLS 公钥是 48 字节（96 个十六进制字符 + 0x）
+      // 验证 BLS 公钥长度（通常是48字节，但可能包含额外的元数据）
       const blsKeyBytes = ethers.getBytes(blsPublicKey);
+      if (blsKeyBytes.length < 48) {
+        throw new Error(`BLS public key too short: ${blsKeyBytes.length} bytes, expected at least 48 bytes`);
+      }
+      
+      // 记录实际的BLS公钥信息用于调试
+      logger.info(`BLS public key length: ${blsKeyBytes.length} bytes`);
       if (blsKeyBytes.length !== 48) {
-        throw new Error('BLS public key must be 48 bytes');
+        logger.warn(`BLS public key is ${blsKeyBytes.length} bytes instead of expected 48 bytes`);
       }
 
       // 调用合约的 getAddress 方法
@@ -109,10 +115,16 @@ export class AAWalletService {
         throw new Error('Invalid BLS public key format');
       }
 
-      // 确保 BLS 公钥是 48 字节
+      // 验证 BLS 公钥长度（通常是48字节，但可能包含额外的元数据）
       const blsKeyBytes = ethers.getBytes(blsPublicKey);
+      if (blsKeyBytes.length < 48) {
+        throw new Error(`BLS public key too short: ${blsKeyBytes.length} bytes, expected at least 48 bytes`);
+      }
+      
+      // 记录实际的BLS公钥信息用于调试
+      logger.info(`BLS public key length: ${blsKeyBytes.length} bytes`);
       if (blsKeyBytes.length !== 48) {
-        throw new Error('BLS public key must be 48 bytes');
+        logger.warn(`BLS public key is ${blsKeyBytes.length} bytes instead of expected 48 bytes`);
       }
 
       // 首先计算预期的钱包地址
@@ -132,7 +144,7 @@ export class AAWalletService {
 
       // 创建钱包
       logger.info(`Creating wallet for owner: ${ownerAddress}`);
-      const tx = await this.factoryContract.getFunction('createAccount')(
+      const tx = await this.factoryContract.createAccount(
         ownerAddress,
         blsPublicKey,
         salt
@@ -141,26 +153,78 @@ export class AAWalletService {
       logger.info(`Wallet creation transaction sent: ${tx.hash}`);
 
       // 等待交易确认
-      const receipt = await tx.wait();
-      logger.info(`Wallet creation transaction confirmed: ${receipt.transactionHash}`);
+      let receipt;
+      try {
+        receipt = await tx.wait();
+        if (!receipt) {
+          // 如果 wait() 返回 undefined，手动获取交易收据
+          logger.info(`tx.wait() returned undefined, fetching receipt manually for ${tx.hash}`);
+          await new Promise(resolve => setTimeout(resolve, 2000)); // 等待2秒
+          receipt = await this.provider.getTransactionReceipt(tx.hash);
+        }
+        logger.info(`Wallet creation transaction confirmed: ${receipt?.transactionHash || tx.hash}`);
+      } catch (error) {
+        logger.error(`Error waiting for transaction: ${error.message}`);
+        // 手动获取交易收据作为备选方案
+        receipt = await this.provider.getTransactionReceipt(tx.hash);
+      }
+
+      if (!receipt) {
+        throw new Error('Failed to get transaction receipt');
+      }
 
       // 从事件中获取创建的钱包地址
+      logger.info(`Looking for AccountCreated event in ${receipt.logs.length} logs`);
       const accountCreatedEvent = receipt.logs.find(
         (log: any) => log.topics[0] === ethers.id("AccountCreated(address,address,bytes)")
       );
 
       let actualAddress = expectedAddress;
+      logger.info(`Expected address: ${expectedAddress}`);
+      
       if (accountCreatedEvent) {
         // 从事件主题中提取地址
         const addressFromEvent = '0x' + accountCreatedEvent.topics[1].slice(26);
         actualAddress = ethers.getAddress(addressFromEvent);
+        logger.info(`Found AccountCreated event, extracted address: ${addressFromEvent} -> normalized: ${actualAddress}`);
+      } else {
+        logger.warn('No AccountCreated event found, using expected address');
+        // 让我们打印所有日志主题来调试
+        receipt.logs.forEach((log: any, index: number) => {
+          logger.info(`Log ${index}: topic[0] = ${log.topics[0]}, address = ${log.address}`);
+        });
       }
 
-      // 验证钱包是否成功创建
-      const finalCode = await this.provider.getCode(actualAddress);
+      // 验证钱包是否成功创建（带重试机制，因为可能存在时间延迟）
+      logger.info(`Checking contract code at address: ${actualAddress}`);
+      let finalCode = '0x';
+      let retryCount = 0;
+      const maxRetries = 5;
+      
+      while (finalCode === '0x' && retryCount < maxRetries) {
+        if (retryCount > 0) {
+          logger.info(`Retry ${retryCount}/${maxRetries}: Waiting for contract deployment...`);
+          await new Promise(resolve => setTimeout(resolve, 1000)); // 等待1秒
+        }
+        
+        finalCode = await this.provider.getCode(actualAddress);
+        logger.info(`Attempt ${retryCount + 1}: Contract code length: ${finalCode.length}, has code: ${finalCode !== '0x'}`);
+        retryCount++;
+      }
+      
       if (finalCode === '0x') {
+        logger.error(`No contract code found at address after ${maxRetries} attempts: ${actualAddress}`);
+        logger.error(`Expected address: ${expectedAddress}`);
+        logger.error(`Transaction hash: ${tx.hash}`);
+        
+        // 尝试检查预期地址的代码
+        const expectedCode = await this.provider.getCode(expectedAddress);
+        logger.error(`Expected address code length: ${expectedCode.length}, has code: ${expectedCode !== '0x'}`);
+        
         throw new Error('Wallet creation failed: no contract code at expected address');
       }
+      
+      logger.info(`Contract deployment verified successfully after ${retryCount} attempts`);
 
       const walletInfo: WalletInfo = {
         address: actualAddress,

@@ -51,11 +51,13 @@ export class UserService {
 
       // 从 credentialPublicKey 生成 BLS 公钥（这里简化处理，实际应该从 passkey 中提取）
       // 注意：这是一个简化的实现，实际项目中需要正确处理 passkey 公钥到 BLS 公钥的转换
-      const blsPublicKey = '0x' + Buffer.from(credentialPublicKey).toString('hex').padStart(96, '0').slice(0, 96);
+      // BLS 公钥必须是 48 字节（96 个十六进制字符）
+      const publicKeyHex = Buffer.from(credentialPublicKey).toString('hex').padStart(96, '0').slice(0, 96);
+      const blsPublicKey = '0x' + publicKeyHex;
       
-      // 生成确定性的 owner 地址（使用邮箱哈希）
+      // 使用 Anvil 的第一个测试账户作为 owner（在生产环境中应该使用用户的实际地址）
       const { ethers } = require('ethers');
-      const ownerAddress = ethers.getAddress('0x' + ethers.keccak256(ethers.toUtf8Bytes(email)).slice(26));
+      const ownerAddress = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'; // Anvil 测试账户
       
       // 生成确定性的 salt
       const salt = this.aaWalletService.generateDeterministicSalt(email, blsPublicKey);
