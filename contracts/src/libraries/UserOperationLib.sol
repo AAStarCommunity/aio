@@ -50,4 +50,17 @@ library UserOperationLib {
     function requiredPreFund(UserOperation calldata userOp, uint256 gasPrice) internal pure returns (uint256) {
         return gasPrice * (userOp.callGasLimit + userOp.verificationGasLimit + userOp.preVerificationGas);
     }
+
+    /**
+     * @dev 获取初始化代码工厂地址
+     * @param userOp 用户操作
+     * @return 工厂地址
+     */
+    function getInitCodeFactory(UserOperation calldata userOp) internal pure returns (address) {
+        bytes calldata initCode = userOp.initCode;
+        if (initCode.length < 20) {
+            return address(0);
+        }
+        return address(bytes20(initCode[:20]));
+    }
 } 

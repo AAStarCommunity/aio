@@ -5,46 +5,67 @@ import "./UserOperation.sol";
 
 /**
  * @title IEntryPoint
- * @dev ERC-4337 EntryPoint 合约接口
+ * @dev ERC-4337 EntryPoint接口
  */
 interface IEntryPoint {
-    /**
-     * @dev 批量处理用户操作
-     * @param ops 用户操作数组
-     * @return success 每个操作的执行结果
-     */
-    function handleOps(UserOperation[] calldata ops) external returns (bool[] memory success);
+    // 每个聚合器的用户操作结构
+    struct UserOpsPerAggregator {
+        UserOperation[] userOps;
+        address aggregator;
+        bytes signature;
+    }
 
-    /**
-     * @dev 存款
-     */
-    function deposit() external payable;
+    // 返回信息结构
+    struct ReturnInfo {
+        uint256 preOpGas;
+        uint256 prefund;
+        bool sigFailed;
+        uint48 validAfter;
+        uint48 validUntil;
+        bytes paymasterContext;
+    }
 
-    /**
-     * @dev 提取存款
-     * @param amount 提取金额
-     */
-    function withdraw(uint256 amount) external;
+    // 质押信息结构
+    struct StakeInfo {
+        uint256 stake;
+        uint256 unstakeDelaySec;
+    }
 
-    /**
-     * @dev 获取账户存款信息
-     * @param account 账户地址
-     * @return amount 存款金额
-     * @return unlockTime 解锁时间
-     */
-    function getDeposit(address account) external view returns (uint256 amount, uint256 unlockTime);
+    // 聚合器质押信息结构
+    struct AggregatorStakeInfo {
+        address aggregator;
+        StakeInfo stakeInfo;
+    }
 
-    /**
-     * @dev 模拟验证用户操作
-     * @param userOp 用户操作
-     */
+    // 事件
+    event UserOperationEvent(bytes32 indexed userOpHash, address indexed sender, address indexed paymaster, uint256 nonce, bool success, uint256 actualGasCost, uint256 actualGasUsed);
+    event AccountDeployed(bytes32 indexed userOpHash, address indexed sender, address factory, address paymaster);
+    event Deposited(address indexed account, uint256 totalDeposit);
+    event Withdrawn(address indexed account, address withdrawAddress, uint256 amount);
+    event StakeLocked(address indexed account, uint256 totalStaked, uint256 unstakeDelaySec);
+    event StakeUnlocked(address indexed account, uint256 withdrawTime);
+    event StakeWithdrawn(address indexed account, address withdrawAddress, uint256 amount);
+
+    // 错误
+    error FailedOp(uint256 opIndex, string reason);
+    error SenderAddressResult(address sender);
+    error SignatureValidationFailed(address aggregator);
+    error ValidationResult(ReturnInfo returnInfo, StakeInfo senderInfo, StakeInfo factoryInfo, StakeInfo paymasterInfo);
+    error ValidationResultWithAggregation(ReturnInfo returnInfo, StakeInfo senderInfo, StakeInfo factoryInfo, StakeInfo paymasterInfo, AggregatorStakeInfo aggregatorInfo);
+
+    // 主要方法
+    function handleOps(UserOperation[] calldata ops, address payable beneficiary) external;
+    function handleAggregatedOps(UserOpsPerAggregator[] calldata opsPerAggregator, address payable beneficiary) external;
     function simulateValidation(UserOperation calldata userOp) external;
-
-    /**
-     * @dev 获取用户操作哈希
-     * @param userOp 用户操作
-     * @param validUntil 有效期限
-     * @param validAfter 生效时间
-     */
-    function getUserOpHash(UserOperation calldata userOp, uint48 validUntil, uint48 validAfter) external view returns (bytes32);
+    function getSenderAddress(bytes calldata initCode) external;
+    function getUserOpHash(UserOperation calldata userOp) external view returns (bytes32);
+    
+    // 存款和质押方法
+    function depositTo(address account) external payable;
+    function withdrawTo(address payable withdrawAddress, uint256 withdrawAmount) external;
+    function addStake(uint32 unstakeDelaySec) external payable;
+    function unlockStake() external;
+    function withdrawStake(address payable withdrawAddress) external;
+    function balanceOf(address account) external view returns (uint256);
+    function getStakeInfo(address account) external view returns (StakeInfo memory);
 } 

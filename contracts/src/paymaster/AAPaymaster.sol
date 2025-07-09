@@ -154,7 +154,7 @@ contract AAPaymaster is IPaymaster, Ownable, ReentrancyGuard, Pausable {
         if (msg.value < MIN_DEPOSIT) revert InsufficientDeposit();
         
         // 将存款转发给 EntryPoint
-        entryPoint.deposit{value: msg.value}();
+        entryPoint.depositTo{value: msg.value}(address(this));
     }
     
     /**

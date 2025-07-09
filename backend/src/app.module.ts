@@ -12,12 +12,14 @@ import { UserService } from './services/user.service';
 import { PasskeyService } from './services/passkey.service';
 import { AAWalletService } from './services/aa-wallet.service';
 import { UserSchema } from './models/user.model';
+import { BlsSignatureService } from './services/bls.signature.service';
+import { BLSService } from './services/bls.service';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [config],
+      load: [() => config],
     }),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
@@ -48,6 +50,8 @@ import { UserSchema } from './models/user.model';
     UserService,
     PasskeyService,
     AAWalletService,
+    BlsSignatureService,
+    BLSService,
   ],
 })
 export class AppModule {} 

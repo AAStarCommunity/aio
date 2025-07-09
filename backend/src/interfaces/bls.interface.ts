@@ -40,4 +40,5 @@ export interface BlsSignRequest {
 export interface BlsSignResponse {
   signature: string;
   timestamp: Date;
+  nodeId?: string;
 } 

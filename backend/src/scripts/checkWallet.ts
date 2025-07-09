@@ -2,8 +2,8 @@ import { ethers } from 'ethers';
 import config from '../config/config';
 
 async function main() {
-    // 连接到 Sepolia 测试网
-    const provider = new ethers.JsonRpcProvider(config().ethereum.rpcUrl);
+    // 连接到本地anvil链
+    const provider = new ethers.JsonRpcProvider(config.ethereum.rpcUrl);
     
     // 要检查的钱包地址
     const walletAddresses = [

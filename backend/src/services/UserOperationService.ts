@@ -1,11 +1,13 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { ethers } from 'ethers';
 import { createPublicClient, http } from 'viem';
-import { sepolia } from 'viem/chains';
+import { localhost } from 'viem/chains';
 import configuration from '../config/configuration';
 import logger from '../utils/logger';
 import { BundlerService } from './BundlerService';
 import { UserOperationRequest, UserOperation } from '../types/userOperation.type';
+import { PasskeyService } from './passkey.service';
+import { BlsSignatureService } from './bls.signature.service';
 
 /**
  * 表示要执行的交易请求
@@ -25,17 +27,86 @@ export class UserOperationService {
    * 确保字符串有0x前缀并转换为正确的类型
    */
   private ensureHexPrefix(value: string | number): `0x${string}` {
-    const strValue = value.toString();
-    return (strValue.startsWith('0x') ? strValue : `0x${strValue}`) as `0x${string}`;
+    const hexString = typeof value === 'number' ? value.toString(16) : value.toString();
+    return hexString.startsWith('0x') ? hexString as `0x${string}` : `0x${hexString}` as `0x${string}`;
   }
 
   constructor(
-    @Inject(BundlerService) private readonly bundlerService: BundlerService
+    @Inject(BundlerService) private readonly bundlerService: BundlerService,
+    @Inject(PasskeyService) private readonly passkeyService: PasskeyService,
+    @Inject(BlsSignatureService) private readonly blsSignatureService: BlsSignatureService
   ) {
+    // 使用本地链配置
+    const chainConfig = {
+      ...localhost,
+      id: configuration.ethereum.chainId
+    };
+
     this.publicClient = createPublicClient({
-      chain: sepolia,
+      chain: chainConfig,
       transport: http(configuration.ethereum.rpcUrl)
     });
+  }
+
+  /**
+   * 创建并签名用户操作（完整流程）
+   * @param accountAddress 账户地址
+   * @param txRequest 交易请求
+   * @param paymasterEnabled 是否启用paymaster
+   * @param passkeyVerification passkey验证数据
+   * @param requiredNodeCount 需要的BLS节点数量
+   * @returns 签名后的用户操作
+   */
+  async createAndSignUserOperation(
+    accountAddress: string,
+    txRequest: TransactionRequest,
+    paymasterEnabled: boolean = false,
+    passkeyVerification: {
+      challenge: string;
+      response: any;
+      credentialPublicKey: Buffer;
+      counter: number;
+    },
+    requiredNodeCount: number = 3
+  ): Promise<UserOperationRequest> {
+    try {
+      logger.info(`创建并签名用户操作 - 账户: ${accountAddress}`);
+      
+      // 1. Passkey验证
+      logger.info('1. 验证Passkey身份');
+      const passkeyVerificationResult = await this.passkeyService.verifyAuthentication(
+        passkeyVerification.response,
+        passkeyVerification.challenge,
+        passkeyVerification.credentialPublicKey,
+        passkeyVerification.counter
+      );
+      
+      if (!passkeyVerificationResult.verified) {
+        throw new Error('Passkey验证失败');
+      }
+      logger.info('Passkey验证成功');
+
+      // 2. 创建未签名的用户操作
+      logger.info('2. 创建未签名的用户操作');
+      const userOp = await this.createUserOperation(accountAddress, txRequest, paymasterEnabled);
+      
+      // 3. 使用BLS签名服务进行多节点签名
+      logger.info('3. 执行BLS多节点签名流程');
+      const aggregatedSignature = await this.blsSignatureService.signUserOperationWithMultipleNodes(
+        userOp,
+        requiredNodeCount
+      );
+      
+      // 4. 将聚合签名添加到用户操作
+      logger.info('4. 添加聚合签名到用户操作');
+      userOp.signature = this.ensureHexPrefix(aggregatedSignature);
+      
+      logger.info(`用户操作签名完成: ${JSON.stringify(userOp)}`);
+      return userOp;
+    } catch (error) {
+      logger.error(`创建并签名用户操作错误: ${error}`);
+      throw new Error(`Failed to create and sign user operation: ${error.message}`);
+    }
   }
 
   /**
@@ -81,7 +152,7 @@ export class UserOperationService {
         maxFeePerGas: this.ensureHexPrefix(maxFeePerGas),
         maxPriorityFeePerGas: this.ensureHexPrefix(maxPriorityFeePerGas),
         paymasterAndData: '0x' as `0x${string}`, // 默认不使用paymaster
-        signature: '0x' as `0x${string}` // 暂时为空，后续会添加签名
+        signature: this.generateTestSignature() // 使用测试签名
       };
       
       // 如果需要Paymaster，设置paymasterAndData
@@ -110,30 +181,14 @@ export class UserOperationService {
    */
   private async getAccountNonce(accountAddress: string): Promise<string> {
     try {
-      // 调用EntryPoint合约的getNonce方法
-      const data = {
-        address: this.bundlerService.entryPointAddress as `0x${string}`,
-        abi: [
-          {
-            inputs: [
-              { name: 'sender', type: 'address' },
-              { name: 'key', type: 'uint192' }
-            ],
-            name: 'getNonce',
-            outputs: [{ name: '', type: 'uint256' }],
-            stateMutability: 'view',
-            type: 'function'
-          }
-        ],
-        functionName: 'getNonce',
-        args: [accountAddress as `0x${string}`, BigInt(0)]
-      };
-      
-      const nonce = await this.publicClient.readContract(data);
+      // 使用bundlerService中的EntryPoint合约直接调用
+      const nonce = await this.bundlerService.getNonce(accountAddress);
+      logger.info(`获取到账户nonce: ${nonce}`);
       return nonce.toString();
     } catch (error) {
       logger.error(`Error getting account nonce: ${error}`);
       // 如果获取失败，默认返回0
+      logger.warn('使用默认nonce: 0');
       return '0';
     }
   }
@@ -242,5 +297,23 @@ export class UserOperationService {
       logger.error(`Error estimating transaction gas: ${error}`);
       throw new Error(`Failed to estimate transaction gas: ${error}`);
     }
+  }
+
+  /**
+   * 生成测试签名（用于开发环境）
+   * 注意：这是测试签名，生产环境需要实现真正的BLS签名
+   */
+  private generateTestSignature(): `0x${string}` {
+    // 为测试环境生成一个固定的有效签名
+    // 这个签名长度应该符合账户合约的预期
+    // 通常ERC-4337账户合约期望65字节的签名 (r:32字节 + s:32字节 + v:1字节)
+    const r = '1'.repeat(64); // 32字节的r值
+    const s = '2'.repeat(64); // 32字节的s值  
+    const v = '1b'; // 1字节的v值 (27的十六进制)
+    
+    const testSignature = `0x${r}${s}${v}` as `0x${string}`; // 拼接0x+r+s+v
+    
+    logger.info(`生成测试签名: ${testSignature}`);
+    return testSignature;
   }
 } 

@@ -2,14 +2,14 @@ import { ethers } from 'ethers';
 import config from '../config/config';
 
 async function main() {
-    // 连接到 Sepolia 测试网
-    const provider = new ethers.JsonRpcProvider(config().ethereum.rpcUrl);
+    // 连接到本地anvil链
+    const provider = new ethers.JsonRpcProvider(config.ethereum.rpcUrl);
     
     // 核心合约地址
     const contracts = {
-        entryPoint: config().ethereum.entryPointAddress,
-        accountFactory: config().ethereum.accountFactoryAddress,
-        paymaster: config().ethereum.paymasterAddress
+        entryPoint: config.ethereum.entryPointAddress,
+        accountFactory: config.ethereum.accountFactoryAddress,
+        paymaster: config.ethereum.paymasterAddress
     };
 
     console.log('检查核心合约状态...\n');
