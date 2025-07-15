@@ -5,8 +5,8 @@ import "forge-std/Test.sol";
 import "../src/libraries/BLSSignatureVerifier.sol";
 import "../src/AAAccount.sol";
 import "../src/AAAccountFactory.sol";
-import "../src/EntryPoint.sol";
-import "../src/interfaces/UserOperation.sol";
+import "@account-abstraction/contracts/core/EntryPoint.sol";
+import "@account-abstraction/contracts/interfaces/PackedUserOperation.sol";
 
 /**
  * @title BLSSignatureTest

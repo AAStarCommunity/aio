@@ -3,7 +3,8 @@ pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
 import "../src/paymaster/AAPaymaster.sol";
-import "../src/EntryPoint.sol";
+import "@account-abstraction/contracts/core/EntryPoint.sol";
+import "@account-abstraction/contracts/interfaces/PackedUserOperation.sol";
 import "../src/AAAccount.sol";
 import "../src/AAAccountFactory.sol";
 import "./mocks/MockERC20.sol";

@@ -5,8 +5,9 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
-import "../interfaces/IPaymaster.sol";
-import "../interfaces/IEntryPoint.sol";
+import "@account-abstraction/contracts/interfaces/IPaymaster.sol";
+import "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
+import "@account-abstraction/contracts/interfaces/PackedUserOperation.sol";
 
 /**
  * @title AAPaymaster
@@ -61,10 +62,10 @@ contract AAPaymaster is IPaymaster, Ownable, ReentrancyGuard, Pausable {
      * @dev 验证用户操作并处理支付
      */
     function validatePaymasterUserOp(
-        UserOperation calldata userOp,
+        PackedUserOperation calldata userOp,
         bytes32 userOpHash,
         uint256 maxCost
-    ) external whenNotPaused returns (bytes memory context) {
+    ) external whenNotPaused returns (bytes memory context, uint256 validationData) {
         // 确保调用者是 EntryPoint
         require(msg.sender == address(entryPoint), "Caller not EntryPoint");
         
@@ -82,6 +83,9 @@ contract AAPaymaster is IPaymaster, Ownable, ReentrancyGuard, Pausable {
             _validateTokenPayment(userOp.sender, token, tokenAmount);
             context = abi.encode(PaymentType.Token, userOp.sender, token, tokenAmount);
         }
+        
+        // 返回验证成功
+        return (context, 0);
     }
     
     /**
@@ -90,7 +94,8 @@ contract AAPaymaster is IPaymaster, Ownable, ReentrancyGuard, Pausable {
     function postOp(
         PostOpMode mode,
         bytes calldata context,
-        uint256 actualGasCost
+        uint256 actualGasCost,
+        uint256 actualUserOpFeePerGas
     ) external {
         // 确保调用者是 EntryPoint
         require(msg.sender == address(entryPoint), "Caller not EntryPoint");

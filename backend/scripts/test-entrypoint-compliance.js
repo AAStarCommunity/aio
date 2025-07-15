@@ -1,10 +1,17 @@
+/**
+ * @title EntryPoint ERC-4337 合规性测试脚本
+ * @description 用于验证部署的EntryPoint合约是否符合ERC-4337标准
+ * @usage node scripts/test-entrypoint-compliance.js
+ * @author AirAccount Team
+ */
+
 const { ethers } = require('ethers');
 
 // 连接到本地anvil网络
 const provider = new ethers.JsonRpcProvider('http://localhost:8545');
 
-// 合约地址
-const ENTRY_POINT_ADDRESS = '0x0165878A594ca255338adfa4d48449f69242Eb8F';
+// 从环境变量或配置文件中获取合约地址
+const ENTRY_POINT_ADDRESS = process.env.ENTRY_POINT_ADDRESS || '0x0165878A594ca255338adfa4d48449f69242Eb8F';
 
 // ERC-4337 EntryPoint ABI (简化版)
 const ENTRY_POINT_ABI = [

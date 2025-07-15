@@ -2,9 +2,9 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Script.sol";
-import "../src/interfaces/IEntryPoint.sol";
-import "../src/interfaces/IPaymaster.sol";
-import "../src/EntryPoint.sol";
+import "@account-abstraction/contracts/core/EntryPoint.sol";
+import "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
+import "@account-abstraction/contracts/interfaces/IPaymaster.sol";
 import "../src/AAAccount.sol";
 import "../src/AAAccountFactory.sol";
 import "../src/paymaster/AAPaymaster.sol";
@@ -18,9 +18,9 @@ contract DeployAAContracts is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
         
-        // 1. 部署EntryPoint合约
+        // 1. 部署标准EntryPoint合约
         EntryPoint entryPoint = new EntryPoint();
-        console.log("EntryPoint deployed at: ", address(entryPoint));
+        console.log("Standard EntryPoint deployed at: ", address(entryPoint));
         
         // 2. 部署AAAccountFactory
         AAAccountFactory accountFactory = new AAAccountFactory(entryPoint);
@@ -31,8 +31,8 @@ contract DeployAAContracts is Script {
         console.log("AAPaymaster deployed at: ", address(paymaster));
         
         // 4. 为Paymaster存入初始资金（1 ETH）
-        entryPoint.deposit{value: 1 ether}();
-        console.log("Funded EntryPoint with 1 ETH");
+        entryPoint.depositTo{value: 1 ether}(address(paymaster));
+        console.log("Funded EntryPoint with 1 ETH for paymaster");
         
         // 5. 创建一个测试账户，用于验证部署是否成功
         bytes memory blsPublicKey = new bytes(48);

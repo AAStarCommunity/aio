@@ -7,7 +7,7 @@ import logger from '../utils/logger';
 
 @Injectable()
 export class BLSService {
-  private readonly privateKey: string;
+  private readonly privateKey: Uint8Array;
   private readonly publicKey: Uint8Array;
   private readonly provider: ethers.JsonRpcProvider;
 
@@ -19,7 +19,10 @@ export class BLSService {
       }
 
       // 确保私钥是正确的格式
-      this.privateKey = privateKeyHex.startsWith('0x') ? privateKeyHex.slice(2) : privateKeyHex;
+      const cleanPrivateKey = privateKeyHex.startsWith('0x') ? privateKeyHex.slice(2) : privateKeyHex;
+      
+      // 将私钥从十六进制字符串转换为 Uint8Array
+      this.privateKey = ethers.getBytes('0x' + cleanPrivateKey);
       
       // 从私钥生成公钥
       this.publicKey = bls.getPublicKey(this.privateKey);
