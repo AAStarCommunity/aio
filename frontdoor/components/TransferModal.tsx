@@ -4,8 +4,9 @@ import { useState } from 'react';
 import { User, Contact, Transfer, TransferFormData } from '@/lib/types';
 import { transferStorage, generateId, formatAddress } from '@/lib/storage';
 import { api } from '@/lib/api';
+import { verifyPasskeyCredential } from '@/lib/passkey';
 import { ethers } from 'ethers';
-import { DollarSign, User as UserIcon, X, Send } from 'lucide-react';
+import { DollarSign, User as UserIcon, X, Send, Shield } from 'lucide-react';
 
 interface TransferModalProps {
   fromUser: User;
@@ -45,16 +46,34 @@ export default function TransferModal({ fromUser, toContact, onTransfer, onClose
       // 将 ETH 数量转换为 Wei
       const amountInWei = ethers.parseEther(formData.amount.toString()).toString();
       
-      setCurrentStep('正在创建转账...');
+      setCurrentStep('正在进行身份验证...');
       
       // 尝试调用真实的转账API
       try {
-        // 创建并发送用户操作（一步完成）
-        const { userOperation, userOpHash } = await api.transfer.createTransfer({
+        // 1. 获取登录challenge（Passkey认证）
+        const { options } = await api.auth.loginStart(fromUser.email);
+        
+        setCurrentStep('请完成生物识别验证...');
+        
+        // 2. 执行Passkey认证
+        const authResponse = await verifyPasskeyCredential(options);
+        
+        setCurrentStep('正在创建转账...');
+        
+        // 3. 调用带BLS签名的完整转账接口
+        const result = await api.transfer.createAndSendSignedTransfer({
           accountAddress: fromUser.walletAddress,
-          toAddress: formData.toAddress,
-          amount: amountInWei
+          to: formData.toAddress,
+          value: amountInWei,
+          passkeyVerification: {
+            challenge: options.challenge,
+            response: authResponse,
+            credentialPublicKey: fromUser.credentialPublicKey || '',
+            counter: fromUser.counter || 0
+          }
         });
+        
+        const { userOperation, userOpHash } = result;
 
         setCurrentStep('转账已发送，等待确认...');
 
@@ -73,8 +92,18 @@ export default function TransferModal({ fromUser, toContact, onTransfer, onClose
         transferStorage.saveTransfer(transfer);
         onTransfer(transfer);
         
-      } catch (apiError) {
+      } catch (apiError: any) {
         console.warn('Real transfer API failed, falling back to simulation:', apiError);
+        
+        // 检查是否是Passkey认证错误
+        if (apiError.message?.includes('User cancelled') || apiError.message?.includes('AbortError')) {
+          setError('用户取消了生物识别验证');
+          return;
+        } else if (apiError.message?.includes('NotAllowedError')) {
+          setError('生物识别验证失败，请重试');
+          return;
+        }
+        
         setCurrentStep('转账API不可用，使用模拟模式...');
         
         // 后备方案：模拟转账
@@ -177,6 +206,17 @@ export default function TransferModal({ fromUser, toContact, onTransfer, onClose
               rows={3}
               placeholder="请输入转账说明（可选）"
             />
+          </div>
+
+          {/* 安全提示 */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <div className="flex items-center space-x-2">
+              <Shield className="h-4 w-4 text-blue-600" />
+              <span className="text-sm text-blue-800 font-medium">安全验证</span>
+            </div>
+            <p className="text-xs text-blue-700 mt-1">
+              转账需要通过生物识别或硬件密钥验证，确保交易安全
+            </p>
           </div>
 
           <div className="flex space-x-3 pt-4">

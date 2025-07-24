@@ -21,14 +21,14 @@ describe('Backend-BLS Node Integration Tests', () => {
   // 测试数据
   const mockUserOp = {
     sender: '0x1234567890123456789012345678901234567890',
-    nonce: '0x0',
+    nonce: 0n,
     initCode: '0x',
     callData: '0x',
-    callGasLimit: '0x5000',
-    verificationGasLimit: '0x5000',
-    preVerificationGas: '0x5000',
-    maxFeePerGas: '0x1000',
-    maxPriorityFeePerGas: '0x100',
+    callGasLimit: 0x5000n,
+    verificationGasLimit: 0x5000n,
+    preVerificationGas: 0x5000n,
+    maxFeePerGas: 0x1000n,
+    maxPriorityFeePerGas: 0x100n,
     paymasterAndData: '0x',
     signature: '0x'
   };

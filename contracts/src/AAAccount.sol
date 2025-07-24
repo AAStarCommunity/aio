@@ -7,6 +7,7 @@ import "@account-abstraction/contracts/interfaces/IAccount.sol";
 import "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 import "@account-abstraction/contracts/interfaces/PackedUserOperation.sol";
 import "./libraries/BLSSignatureVerifier.sol";
+import "./ValidatorRegistry.sol";
 
 /**
  * @title AAAccount
@@ -18,7 +19,8 @@ contract AAAccount is IAccount, Initializable {
 
     address public owner;
     IEntryPoint private immutable _entryPoint;
-    bytes public blsPublicKey;  // 修改为bytes以存储完整的BLS公钥
+    ValidatorRegistry public immutable validatorRegistry;  // Validator注册表
+    bytes public blsPublicKey;  // 修改为bytes以存储完整的BLS公钥（保留为兼容性）
     bool public isTesting;      // 标记是否处于测试模式
 
     event AccountInitialized(address indexed owner, bytes blsPublicKey);
@@ -34,8 +36,9 @@ contract AAAccount is IAccount, Initializable {
         _;
     }
 
-    constructor(IEntryPoint entryPoint_) {
+    constructor(IEntryPoint entryPoint_, ValidatorRegistry validatorRegistry_) {
         _entryPoint = entryPoint_;
+        validatorRegistry = validatorRegistry_;
         isTesting = true;  // 在构造函数中设置为测试模式
     }
 
@@ -61,17 +64,20 @@ contract AAAccount is IAccount, Initializable {
     {
         if (msg.sender != address(_entryPoint)) revert NotEntryPoint();
         
-        // 验证 BLS 签名
+        // 验证 BLS 聚合签名
         bool isValid;
         if (isTesting) {
             // 测试模式下，跳过真正的签名验证
             isValid = true;
         } else {
-            // 生产模式下，进行实际的签名验证
-            isValid = BLSSignatureVerifier.verifySignature(
+            // 生产模式下，使用ValidatorRegistry中的公钥验证BLS聚合签名
+            require(validatorRegistry.hasSufficientValidators(), "Insufficient validators");
+            
+            bytes[] memory validatorPublicKeys = validatorRegistry.getActiveValidatorKeys();
+            isValid = BLSSignatureVerifier.verifyAggregatedSignature(
                 userOpHash,
                 userOp.signature,
-                blsPublicKey
+                validatorPublicKeys
             );
         }
         

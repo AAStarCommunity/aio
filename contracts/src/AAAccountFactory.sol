@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "./AAAccount.sol";
+import "./ValidatorRegistry.sol";
 
 /**
  * @title AAAccountFactory
@@ -13,8 +14,8 @@ contract AAAccountFactory {
     
     event AccountCreated(address indexed account, address indexed owner, bytes blsPublicKey);
     
-    constructor(IEntryPoint entryPoint) {
-        accountImplementation = new AAAccount(entryPoint);
+    constructor(IEntryPoint entryPoint, ValidatorRegistry validatorRegistry) {
+        accountImplementation = new AAAccount(entryPoint, validatorRegistry);
     }
     
     /**

@@ -56,14 +56,14 @@ describe('BundlerService', () => {
   describe('estimateUserOperationGas', () => {
     const mockUserOp = {
       sender: '0x123',
-      nonce: '0x0',
+      nonce: 0n,
       initCode: '0x',
       callData: '0x123',
-      callGasLimit: '0x0',
-      verificationGasLimit: '0x0',
-      preVerificationGas: '0x0',
-      maxFeePerGas: '0x0',
-      maxPriorityFeePerGas: '0x0',
+      callGasLimit: 0n,
+      verificationGasLimit: 0n,
+      preVerificationGas: 0n,
+      maxFeePerGas: 0n,
+      maxPriorityFeePerGas: 0n,
       paymasterAndData: '0x',
       signature: '0x'
     };
@@ -121,14 +121,14 @@ describe('BundlerService', () => {
   describe('sendUserOperation', () => {
     const mockUserOp = {
       sender: '0x123',
-      nonce: '0x0',
+      nonce: 0n,
       initCode: '0x',
       callData: '0x123',
-      callGasLimit: '0x5000',
-      verificationGasLimit: '0x5000',
-      preVerificationGas: '0x5000',
-      maxFeePerGas: '0x5000',
-      maxPriorityFeePerGas: '0x5000',
+      callGasLimit: 0x5000n,
+      verificationGasLimit: 0x5000n,
+      preVerificationGas: 0x5000n,
+      maxFeePerGas: 0x5000n,
+      maxPriorityFeePerGas: 0x5000n,
       paymasterAndData: '0x',
       signature: '0x'
     };

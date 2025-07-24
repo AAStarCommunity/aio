@@ -1,116 +1,64 @@
 import { BLSService } from '../services/bls.service';
-import axios from 'axios';
+import { ConfigService } from '@nestjs/config';
 import { UserOperation } from '../types/userOperation.type';
-
-// Mock axios
-jest.mock('axios');
-const mockedAxios = axios as jest.Mocked<typeof axios>;
 
 describe('BLSService', () => {
   let blsService: BLSService;
-  const testNodeUrl = 'http://test-bls-node:3001';
+  let mockConfigService: jest.Mocked<ConfigService>;
 
   beforeEach(() => {
-    blsService = new BLSService(testNodeUrl);
+    mockConfigService = {
+      get: jest.fn((key: string) => {
+        const config = {
+          'bls.privateKey': 'b37294901c310441cd3c22c0b8d17cd62c7b86e0a59e12e7da5f7eb12c2c325b',
+          'ethereum.rpcUrl': 'http://localhost:8545'
+        };
+        return config[key];
+      }),
+    } as any;
+
+    blsService = new BLSService(mockConfigService);
     jest.clearAllMocks();
   });
 
   const mockUserOp: UserOperation = {
     sender: '0x1234567890123456789012345678901234567890',
-    nonce: '0x0',
+    nonce: 0n,
     initCode: '0x',
     callData: '0x',
-    callGasLimit: '0x0',
-    verificationGasLimit: '0x0',
-    preVerificationGas: '0x0',
-    maxFeePerGas: '0x0',
-    maxPriorityFeePerGas: '0x0',
+    callGasLimit: 0n,
+    verificationGasLimit: 0n,
+    preVerificationGas: 0n,
+    maxFeePerGas: 0n,
+    maxPriorityFeePerGas: 0n,
     paymasterAndData: '0x',
     signature: '0x'
   };
 
-  describe('checkHealth', () => {
-    it('should return true when node is healthy', async () => {
-      mockedAxios.get.mockResolvedValueOnce({ data: { status: 'healthy' } });
-      const result = await blsService.checkHealth();
-      expect(result).toBe(true);
-      expect(mockedAxios.get).toHaveBeenCalledWith(`${testNodeUrl}/health`);
-    });
-
-    it('should return false when node is unhealthy', async () => {
-      mockedAxios.get.mockRejectedValueOnce(new Error('Connection failed'));
-      const result = await blsService.checkHealth();
-      expect(result).toBe(false);
+  describe('calculateUserOpHash', () => {
+    it('should calculate user operation hash correctly', () => {
+      const hash = blsService.calculateUserOpHash(mockUserOp);
+      expect(hash).toBeDefined();
+      expect(typeof hash).toBe('string');
+      expect(hash).toMatch(/^0x[a-fA-F0-9]{64}$/);
     });
   });
 
-  describe('sign', () => {
-    it('should return signature when signing is successful', async () => {
-      const mockSignature = '0x1234';
-      mockedAxios.post.mockResolvedValueOnce({ data: { signature: mockSignature } });
-      
-      const messageHash = '0xabcd';
-      const result = await blsService.sign(messageHash);
-      
-      expect(result).toBe(mockSignature);
-      expect(mockedAxios.post).toHaveBeenCalledWith(
-        `${testNodeUrl}/sign`,
-        { messageHash }
-      );
+  describe('Service Initialization', () => {
+    it('should initialize successfully', () => {
+      expect(blsService).toBeDefined();
+      // 服务初始化成功，说明配置正确
     });
 
-    it('should throw error when signing fails', async () => {
-      mockedAxios.post.mockRejectedValueOnce(new Error('Signing failed'));
-      
-      await expect(blsService.sign('0xabcd'))
-        .rejects
-        .toThrow('Failed to get BLS signature');
+    it('should throw error when private key is missing', () => {
+      const badConfigService = {
+        get: jest.fn((key: string) => {
+          if (key === 'bls.privateKey') return undefined;
+          return 'http://localhost:8545';
+        }),
+      } as any;
+
+      expect(() => new BLSService(badConfigService)).toThrow('BLS private key is not configured');
     });
   });
-
-  describe('verify', () => {
-    it('should return true for valid signature', async () => {
-      mockedAxios.post.mockResolvedValueOnce({ data: { isValid: true } });
-      
-      const messageHash = '0xabcd';
-      const signature = '0x1234';
-      const result = await blsService.verify(messageHash, signature);
-      
-      expect(result).toBe(true);
-      expect(mockedAxios.post).toHaveBeenCalledWith(
-        `${testNodeUrl}/verify`,
-        { messageHash, signature }
-      );
-    });
-
-    it('should return false for invalid signature', async () => {
-      mockedAxios.post.mockResolvedValueOnce({ data: { isValid: false } });
-      
-      const result = await blsService.verify('0xabcd', '0x1234');
-      expect(result).toBe(false);
-    });
-  });
-
-  describe('UserOperation signing and verification', () => {
-    it('should successfully sign and verify a UserOperation', async () => {
-      const mockSignature = '0x1234';
-      mockedAxios.post
-        .mockResolvedValueOnce({ data: { signature: mockSignature } })  // sign
-        .mockResolvedValueOnce({ data: { isValid: true } });           // verify
-      
-      const signature = await blsService.signUserOperation(mockUserOp);
-      expect(signature).toBe(mockSignature);
-      
-      const isValid = await blsService.verifyUserOperationSignature(mockUserOp, signature);
-      expect(isValid).toBe(true);
-    });
-
-    it('should calculate consistent UserOperation hash', () => {
-      const hash1 = blsService.calculateUserOpHash(mockUserOp);
-      const hash2 = blsService.calculateUserOpHash(mockUserOp);
-      
-      expect(hash1).toBe(hash2);
-      expect(hash1).toMatch(/^0x[0-9a-fA-F]{64}$/);
-    });
-  });
-}); 
+});

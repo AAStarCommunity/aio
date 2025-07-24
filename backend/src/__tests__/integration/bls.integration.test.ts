@@ -9,14 +9,14 @@ describe('BLS Node Integration Tests', () => {
   // 测试数据
   const testUserOp = {
     sender: '0x1234567890123456789012345678901234567890',
-    nonce: '0x0',
+    nonce: 0n,
     initCode: '0x',
     callData: '0x',
-    callGasLimit: '0x0',
-    verificationGasLimit: '0x0',
-    preVerificationGas: '0x0',
-    maxFeePerGas: '0x0',
-    maxPriorityFeePerGas: '0x0',
+    callGasLimit: 0n,
+    verificationGasLimit: 0n,
+    preVerificationGas: 0n,
+    maxFeePerGas: 0n,
+    maxPriorityFeePerGas: 0n,
     paymasterAndData: '0x',
     signature: '0x'
   };

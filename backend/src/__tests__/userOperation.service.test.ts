@@ -71,14 +71,14 @@ describe('UserOperationService', () => {
   describe('sendUserOperation', () => {
     const mockUserOp = {
       sender: '0x123',
-      nonce: '0x0',
+      nonce: 0n,
       initCode: '0x',
       callData: '0x123',
-      callGasLimit: '0x5000',
-      verificationGasLimit: '0x5000',
-      preVerificationGas: '0x5000',
-      maxFeePerGas: '0x5000',
-      maxPriorityFeePerGas: '0x5000',
+      callGasLimit: 0x5000n,
+      verificationGasLimit: 0x5000n,
+      preVerificationGas: 0x5000n,
+      maxFeePerGas: 0x5000n,
+      maxPriorityFeePerGas: 0x5000n,
       paymasterAndData: '0x',
       signature: '0x'
     };
