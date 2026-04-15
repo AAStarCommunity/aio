@@ -1,5 +1,6 @@
 # AirAccount - 基于账户抽象的区块链钱包
 
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 AirAccount 是一个基于 ERC-4337 账户抽象标准的区块链钱包应用，集成了 BLS 签名和 WebAuthn 认证，提供安全且用户友好的区块链交互体验。
 
 ## 🌟 特性
@@ -123,7 +124,7 @@ cd contracts && forge test
 
 ## 📄 许可证
 
-MIT License
+Licensed under the [Apache License, Version 2.0](https://opensource.org/licenses/Apache-2.0).
 
 ## 🆕 联系人管理增强功能
 
@@ -248,3 +249,7 @@ GET /api/auth/email/check/:email
 - bob@example.com
 - charlie@example.com
 - test@example.com
+
+## License
+
+Licensed under the [Apache License, Version 2.0](https://opensource.org/licenses/Apache-2.0). See [LICENSE](./LICENSE) for details.
